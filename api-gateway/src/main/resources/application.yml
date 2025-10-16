@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+        # Hotel Service с полным путем
+        - id: hotel-service-test
+          uri: lb://hotel-service
+          predicates:
+            - Path=/api/hotels/test
+          filters:
+            - SetPath=/test  # Явно устанавливаем путь
+
+        # Booking Service с полным путем
+        - id: booking-service-test
+          uri: lb://booking-service
+          predicates:
+            - Path=/api/bookings/test
+          filters:
+            - SetPath=/test
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,routes
+  endpoint:
+    gateway:
+      enabled: true
+    health:
+      show-details: always
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://admin:admin123@localhost:8761/eureka
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
