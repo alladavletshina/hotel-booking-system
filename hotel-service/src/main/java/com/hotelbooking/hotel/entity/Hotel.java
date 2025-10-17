@@ -1,7 +1,9 @@
 package com.hotelbooking.hotel.entity;
 
-import javax.persistence.*;  // ИЗМЕНЯЕМ jakarta.persistence на javax.persistence
 import lombok.Data;
+import javax.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "hotels")
@@ -19,4 +21,7 @@ public class Hotel {
     private String address;
 
     private String description;
+
+    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Room> rooms = new ArrayList<>();
 }

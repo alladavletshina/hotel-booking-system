@@ -11,22 +11,31 @@ spring:
           enabled: true
           lower-case-service-id: true
 
+      # Улучшенная конфигурация маршрутов
       routes:
-        # Hotel Service с полным путем
+        # Маршрут для Hotel Service
+        - id: hotel-service-hotels
+          uri: lb://hotel-service
+          predicates:
+            - Path=/api/hotels/**
+          filters:
+            - StripPrefix=1  # Убирает /api из пути
+
+        # Маршрут для Hotel Service (комнаты)
+        - id: hotel-service-rooms
+          uri: lb://hotel-service
+          predicates:
+            - Path=/api/rooms/**
+          filters:
+            - StripPrefix=1  # Убирает /api из пути
+
+        # Маршрут для Hotel Service (комнаты)
         - id: hotel-service-test
           uri: lb://hotel-service
           predicates:
-            - Path=/api/hotels/test
+            - Path=/api/test/**
           filters:
-            - SetPath=/test  # Явно устанавливаем путь
-
-        # Booking Service с полным путем
-        - id: booking-service-test
-          uri: lb://booking-service
-          predicates:
-            - Path=/api/bookings/test
-          filters:
-            - SetPath=/test
+            - StripPrefix=1  # Убирает /api из пути
 management:
   endpoints:
     web:
@@ -46,3 +55,4 @@ eureka:
 logging:
   level:
     org.springframework.cloud.gateway: TRACE
+    reactor.netty.http.client: DEBUG

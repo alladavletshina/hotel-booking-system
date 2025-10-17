@@ -1,2 +1,14 @@
+com/hotelbooking/hotel/entity/Room.class
+com/hotelbooking/hotel/controller/HotelController.class
 com/hotelbooking/hotel/controller/TestController.class
+com/hotelbooking/hotel/controller/RoomController.class
+com/hotelbooking/hotel/dto/HotelDto.class
+com/hotelbooking/hotel/service/RoomService.class
+com/hotelbooking/hotel/mapper/HotelMapper.class
+com/hotelbooking/hotel/service/HotelService.class
 com/hotelbooking/hotel/HotelServiceApplication.class
+com/hotelbooking/hotel/mapper/RoomMapper.class
+com/hotelbooking/hotel/entity/Hotel.class
+com/hotelbooking/hotel/repository/HotelRepository.class
+com/hotelbooking/hotel/repository/RoomRepository.class
+com/hotelbooking/hotel/dto/RoomDto.class
