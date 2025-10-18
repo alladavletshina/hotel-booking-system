@@ -17,13 +17,13 @@ import java.util.stream.Collectors;
 public class HotelController {
 
     private final HotelService hotelService;
-    private final HotelMapper hotelMapper;  // Инжектим маппер как бин
+    private final HotelMapper hotelMapper;
 
     @GetMapping
     public ResponseEntity<List<HotelDto>> getAllHotels() {
         List<Hotel> hotels = hotelService.findAll();
         List<HotelDto> hotelDtos = hotels.stream()
-                .map(hotelMapper::toDto)  // Используем метод маппера напрямую
+                .map(hotelMapper::toDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(hotelDtos);
     }
@@ -31,21 +31,21 @@ public class HotelController {
     @GetMapping("/{id}")
     public ResponseEntity<HotelDto> getHotel(@PathVariable Long id) {
         Hotel hotel = hotelService.findById(id);
-        return ResponseEntity.ok(hotelMapper.toDto(hotel));  // Используем метод маппера напрямую
+        return ResponseEntity.ok(hotelMapper.toDto(hotel));
     }
 
     @PostMapping
     public ResponseEntity<HotelDto> createHotel(@RequestBody HotelDto hotelDto) {
-        Hotel hotel = hotelMapper.toEntity(hotelDto);  // Используем метод маппера напрямую
+        Hotel hotel = hotelMapper.toEntity(hotelDto);
         Hotel created = hotelService.save(hotel);
-        return ResponseEntity.ok(hotelMapper.toDto(created));  // Используем метод маппера напрямую
+        return ResponseEntity.ok(hotelMapper.toDto(created));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<HotelDto> updateHotel(@PathVariable Long id, @RequestBody HotelDto hotelDto) {
-        Hotel hotel = hotelMapper.toEntity(hotelDto);  // Используем метод маппера напрямую
+        Hotel hotel = hotelMapper.toEntity(hotelDto);
         Hotel updated = hotelService.update(id, hotel);
-        return ResponseEntity.ok(hotelMapper.toDto(updated));  // Используем метод маппера напрямую
+        return ResponseEntity.ok(hotelMapper.toDto(updated));
     }
 
     @DeleteMapping("/{id}")
