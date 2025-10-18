@@ -17,31 +17,50 @@ import java.util.stream.Collectors;
 public class RoomController {
 
     private final RoomService roomService;
-    private final RoomMapper roomMapper;  // Инжектим маппер как бин
+    private final RoomMapper roomMapper;
 
     @GetMapping()
     public ResponseEntity<List<RoomDto>> getAvailableRooms() {
         List<Room> rooms = roomService.findAvailableRooms();
         List<RoomDto> roomDtos = rooms.stream()
-                .map(roomMapper::toDto)  // Используем метод маппера напрямую
+                .map(roomMapper::toDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(roomDtos);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<RoomDto> getRoom(@PathVariable long id){
+        Room room = roomService.findById(id);
+        RoomDto roomDto = roomMapper.toDto(room);
+        return ResponseEntity.ok(roomDto);
+    }
+
+    @GetMapping("/hotelId")
+    public ResponseEntity<List<Room>> getRoomsByHotel(@PathVariable long hotelId){
+        List<Room> rooms = roomService.findRoomsByHotelId(hotelId);
+        return ResponseEntity.ok(rooms);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRoom(@PathVariable long id){
+        roomService.deleteById(id);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/recommend")
     public ResponseEntity<List<RoomDto>> getRecommendedRooms() {
         List<Room> rooms = roomService.findRecommendedRooms();
         List<RoomDto> roomDtos = rooms.stream()
-                .map(roomMapper::toDto)  // Используем метод маппера напрямую
+                .map(roomMapper::toDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(roomDtos);
     }
 
     @PostMapping
     public ResponseEntity<RoomDto> createRoom(@RequestBody RoomDto roomDto) {
-        Room room = roomMapper.toEntity(roomDto);  // Используем метод маппера напрямую
+        Room room = roomMapper.toEntity(roomDto);
         Room created = roomService.save(room);
-        return ResponseEntity.ok(roomMapper.toDto(created));  // Используем метод маппера напрямую
+        return ResponseEntity.ok(roomMapper.toDto(created));
     }
 
     @PostMapping("/{id}/confirm-availability")

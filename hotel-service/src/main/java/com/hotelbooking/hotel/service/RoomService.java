@@ -31,6 +31,10 @@ public class RoomService {
         return roomRepository.findByAvailableTrue();
     }
 
+    public List<Room> findRoomsByHotelId(long hotelId) {
+        return roomRepository.findByHotelId(hotelId);
+    }
+
     public List<Room> findRecommendedRooms() {
         return roomRepository.findAvailableRoomsOrderByTimesBooked();
     }
