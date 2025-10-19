@@ -29,13 +29,14 @@ spring:
           filters:
             - StripPrefix=1  # Убирает /api из пути
 
-        # Маршрут для Hotel Service (комнаты)
-        - id: hotel-service-test
-          uri: lb://hotel-service
+        # Маршрут для Booking Service
+        - id: booking-service-test
+          uri: lb://booking-service
           predicates:
             - Path=/api/test/**
           filters:
-            - StripPrefix=1  # Убирает /api из пути
+            - StripPrefix=1
+
 management:
   endpoints:
     web:

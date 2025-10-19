@@ -1,7 +1,7 @@
 package com.hotelbooking.booking.entity;
 
-import javax.persistence.*;  // Используем javax.persistence для Spring Boot 2.7.x
 import lombok.Data;
+import javax.persistence.*;
 
 @Entity
 @Table(name = "users")
@@ -18,6 +18,15 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Column(unique = true)
     private String email;
-    private String role = "USER";
+
+    private String firstName;
+    private String lastName;
+
+    @Column(nullable = false)
+    private String role = "USER"; // USER, ADMIN
+
+    @Column(nullable = false)
+    private Boolean active = true;
 }

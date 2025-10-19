@@ -14,6 +14,9 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
   h2:
     console:
       enabled: true
@@ -22,7 +25,9 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://admin:admin123@localhost:8761/eureka
+      defaultZone: http://localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
   instance:
     prefer-ip-address: true
 
@@ -33,7 +38,17 @@ feign:
         connectTimeout: 5000
         readTimeout: 5000
         loggerLevel: basic
+  circuitbreaker:
+    enabled: true
 
 logging:
   level:
     com.hotelbooking.booking: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
