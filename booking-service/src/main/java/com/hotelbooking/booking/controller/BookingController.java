@@ -90,4 +90,10 @@ public class BookingController {
         boolean available = bookingService.isRoomAvailableForDates(roomId, startDate, endDate);
         return ResponseEntity.ok(available);
     }
+
+    @DeleteMapping("/{bookingId}")
+    public ResponseEntity<Void> deleteBooking(@PathVariable Long bookingId){
+        bookingService.cancelBooking(bookingId);
+        return ResponseEntity.ok().build();
+    }
 }
