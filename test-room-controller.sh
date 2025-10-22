@@ -1,127 +1,214 @@
 #!/bin/bash
 
-echo "🧪 Testing Room Controller API"
-echo "================================"
+# test-rooms.sh
+# Тестирование Room Management API
 
-BASE_URL="http://localhost:8080/api/rooms"
+BASE_URL="http://localhost:8080/api"
+AUTH_USER="user:password"
+AUTH_ADMIN="admin:password"
+AUTH_INTERNAL="internal:password"
 
-# 1. Получить все доступные комнаты
-echo -e "\n1. 🔍 GET /api/rooms - Все доступные комнаты"
-curl -s $BASE_URL
+echo "=================================================="
+echo "Room Management API Tests"
+echo "Started at: $(date)"
+echo "=================================================="
 
-# 2. Создать отель для тестирования комнат
-echo -e "\n\n2. 🏨 Создаем отель для тестирования"
-HOTEL_RESPONSE=$(curl -s -X POST http://localhost:8080/api/hotels \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test Hotel for Rooms",
-    "address": "Test Address for Rooms",
-    "description": "Hotel for room testing"
-  }')
+# Функция для выполнения запросов с логированием
+make_request() {
+    local method=$1
+    local url=$2
+    local data=$3
+    local auth=$4
+    local description=$5
 
-echo "Создан отель: $HOTEL_RESPONSE"
+    echo ""
+    echo "🔹 $description"
+    echo "➡️ $method $url"
 
-# Извлекаем ID отеля
-HOTEL_ID=$(echo $HOTEL_RESPONSE | grep -o '"id":[0-9]*' | cut -d: -f2)
-echo "Hotel ID: $HOTEL_ID"
+    local curl_cmd="curl -s -w ' | HTTP_STATUS:%{http_code}' -X $method '$url' -H 'Content-Type: application/json' -H 'Accept: application/json'"
 
-# 3. Создать комнату 1
-echo -e "\n\n3. ➕ POST /api/rooms - Комната 1"
-ROOM1_RESPONSE=$(curl -s -X POST $BASE_URL \
-  -H "Content-Type: application/json" \
-  -d '{
+    if [ ! -z "$data" ]; then
+        curl_cmd="$curl_cmd -d '$data'"
+    fi
+
+    if [ ! -z "$auth" ]; then
+        curl_cmd="$curl_cmd -u $auth"
+    fi
+
+    local response=$(eval $curl_cmd)
+    echo "$response"
+
+    # Извлекаем HTTP статус
+    local http_status=$(echo "$response" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d':' -f2)
+
+    if [ "$http_status" -eq 200 ] || [ "$http_status" -eq 201 ]; then
+        echo "✅ SUCCESS (HTTP $http_status)"
+    else
+        echo "❌ FAILED (HTTP $http_status)"
+    fi
+
+    sleep 1
+}
+
+# Функция для извлечения ID из JSON ответа
+extract_id() {
+    echo "$1" | grep -o '"id":[0-9]*' | cut -d':' -f2 | head -1
+}
+
+# Функция для получения ID отеля
+get_hotel_id() {
+    local hotels_response=$(curl -s -u $AUTH_USER "$BASE_URL/hotels")
+    extract_id "$hotels_response"
+}
+
+echo ""
+echo "1. 🏨 ПОДГОТОВКА: ПОЛУЧЕНИЕ ID ОТЕЛЯ"
+
+hotel_id=$(get_hotel_id)
+
+if [ -z "$hotel_id" ]; then
+    echo "⚠️ Отели не найдены, создаем тестовый отель..."
+
+    HOTEL_DATA='{
+        "name": "Test Hotel for Rooms",
+        "address": "123 Test Street",
+        "description": "Test hotel for room testing"
+    }'
+
+    hotel_response=$(curl -s -u $AUTH_ADMIN -X POST "$BASE_URL/hotels" \
+        -H "Content-Type: application/json" \
+        -d "$HOTEL_DATA")
+
+    hotel_id=$(extract_id "$hotel_response")
+    echo "✅ Создан отель с ID: $hotel_id"
+else
+    echo "✅ Найден отель с ID: $hotel_id"
+fi
+
+echo ""
+echo "2. 🔍 ПОЛУЧЕНИЕ ДАННЫХ (USER ROLE)"
+
+make_request "GET" "$BASE_URL/rooms" "" "$AUTH_USER" "Получить все доступные номера"
+
+make_request "GET" "$BASE_URL/rooms/recommend" "" "$AUTH_USER" "Получить рекомендованные номера"
+
+make_request "GET" "$BASE_URL/rooms/hotel/$hotel_id" "" "$AUTH_USER" "Получить номера по отелю $hotel_id"
+
+echo ""
+echo "3. 🛏️ СОЗДАНИЕ НОМЕРОВ (ADMIN ROLE)"
+
+ROOM_1_DATA='{
     "number": "101",
-    "type": "Standard",
-    "price": 100.0,
+    "type": "DELUXE",
+    "price": 199.99,
+    "description": "Spacious deluxe room with city view",
     "available": true,
-    "hotelId": '$HOTEL_ID'
-  }')
+    "timesBooked": 5,
+    "hotelId": '$hotel_id'
+}'
 
-echo "Создана комната: $ROOM1_RESPONSE"
+make_request "POST" "$BASE_URL/rooms" "$ROOM_1_DATA" "$AUTH_ADMIN" "Создать делюкс номер 101"
 
-# Извлекаем ID комнаты 1
-ROOM1_ID=$(echo $ROOM1_RESPONSE | grep -o '"id":[0-9]*' | cut -d: -f2)
-echo "Room 1 ID: $ROOM1_ID"
-
-# 4. Создать комнату 2
-echo -e "\n\n4. ➕ POST /api/rooms - Комната 2"
-ROOM2_RESPONSE=$(curl -s -X POST $BASE_URL \
-  -H "Content-Type: application/json" \
-  -d '{
+ROOM_2_DATA='{
     "number": "102",
-    "type": "Deluxe",
-    "price": 200.0,
+    "type": "SUITE",
+    "price": 299.99,
+    "description": "Luxury suite with jacuzzi and balcony",
     "available": true,
-    "hotelId": '$HOTEL_ID'
-  }')
+    "timesBooked": 2,
+    "hotelId": '$hotel_id'
+}'
 
-echo "Создана комната: $ROOM2_RESPONSE"
+make_request "POST" "$BASE_URL/rooms" "$ROOM_2_DATA" "$AUTH_ADMIN" "Создать люкс номер 102"
 
-# Извлекаем ID комнаты 2
-ROOM2_ID=$(echo $ROOM2_RESPONSE | grep -o '"id":[0-9]*' | cut -d: -f2)
-echo "Room 2 ID: $ROOM2_ID"
-
-# 5. Создать недоступную комнату
-echo -e "\n\n5. ➕ POST /api/rooms - Недоступная комната"
-curl -s -X POST $BASE_URL \
-  -H "Content-Type: application/json" \
-  -d '{
+ROOM_3_DATA='{
     "number": "103",
-    "type": "Suite",
-    "price": 300.0,
+    "type": "SINGLE",
+    "price": 99.99,
+    "description": "Cozy single room",
     "available": false,
-    "hotelId": '$HOTEL_ID'
-  }'
+    "timesBooked": 10,
+    "hotelId": '$hotel_id'
+}'
 
-# 6. Получить все доступные комнаты (должны быть 2)
-echo -e "\n\n6. 🔍 GET /api/rooms - Доступные комнаты (должны быть 2)"
-curl -s $BASE_URL
+make_request "POST" "$BASE_URL/rooms" "$ROOM_3_DATA" "$AUTH_ADMIN" "Создать недоступный номер 103"
 
-# 7. Получить комнату по ID
-echo -e "\n\n7. 🔍 GET /api/rooms/{id} - Комната $ROOM1_ID"
-curl -s $BASE_URL/$ROOM1_ID
+echo ""
+echo "4. 🔍 ПРОВЕРКА СОЗДАННЫХ НОМЕРОВ"
 
-# 8. Получить рекомендованные комнаты
-echo -e "\n\n8. 🔍 GET /api/rooms/recommend - Рекомендованные комнаты"
-curl -s $BASE_URL/recommend
+# Получаем ID созданных номеров
+rooms_response=$(curl -s -u $AUTH_USER "$BASE_URL/rooms")
+room_id=$(extract_id "$rooms_response")
 
-# 9. Подтвердить доступность комнаты
-echo -e "\n\n9. ✅ POST /api/rooms/{id}/confirm-availability - Подтвердить доступность комнаты $ROOM1_ID"
-curl -s -X POST $BASE_URL/$ROOM1_ID/confirm-availability
+if [ ! -z "$room_id" ]; then
+    make_request "GET" "$BASE_URL/rooms/$room_id" "" "$AUTH_USER" "Получить номер по ID $room_id"
 
-# 10. Проверить что timesBooked увеличился
-echo -e "\n\n10. 🔍 GET /api/rooms/$ROOM1_ID - Проверить timesBooked"
-curl -s $BASE_URL/$ROOM1_ID
+    echo ""
+    echo "📊 Сравнение endpoints:"
+    echo ""
 
-# 11. Освободить комнату
-echo -e "\n\n11. 🔓 POST /api/rooms/{id}/release - Освободить комнату $ROOM1_ID"
-curl -s -X POST $BASE_URL/$ROOM1_ID/release
+    echo "Все доступные номера:"
+    curl -s -u $AUTH_USER "$BASE_URL/rooms" | grep -o '"id":[0-9]*' | sort
+    echo ""
 
-# 12. Проверить что timesBooked уменьшился
-echo -e "\n\n12. 🔍 GET /api/rooms/$ROOM1_ID - Проверить timesBooked после release"
-curl -s $BASE_URL/$ROOM1_ID
+    echo "Рекомендованные номера (по timesBooked):"
+    curl -s -u $AUTH_USER "$BASE_URL/rooms/recommend" | grep -o '"id":[0-9]*' | sort
+    echo ""
 
-# 13. Удалить комнату
-echo -e "\n\n13. 🗑️ DELETE /api/rooms/{id} - Удалить комнату $ROOM2_ID"
-curl -s -X DELETE $BASE_URL/$ROOM2_ID
+    echo "Номера отеля $hotel_id:"
+    curl -s -u $AUTH_USER "$BASE_URL/rooms/hotel/$hotel_id" | grep -o '"id":[0-9]*' | sort
+else
+    echo "❌ Не удалось получить ID номера"
+fi
 
-# 14. Проверить что комната удалена
-echo -e "\n\n14. 🔍 GET /api/rooms/$ROOM2_ID - Проверить удаление (должен быть 404)"
-curl -s -w "Status: %{http_code}\n" $BASE_URL/$ROOM2_ID
+echo ""
+echo "5. 🔒 INTERNAL ENDPOINTS (INTERNAL ROLE)"
 
-# 15. Финальный список доступных комнат
-echo -e "\n\n15. 🔍 GET /api/rooms - Финальный список доступных комнат"
-curl -s $BASE_URL
+if [ ! -z "$room_id" ]; then
+    make_request "POST" "$BASE_URL/rooms/$room_id/confirm-availability" "" "$AUTH_INTERNAL" "Подтвердить доступность номера $room_id"
 
-# 16. Тестирование ошибок
-echo -e "\n\n16. 🐛 Тестирование ошибок"
+    make_request "POST" "$BASE_URL/rooms/$room_id/release" "" "$AUTH_INTERNAL" "Снять блокировку номера $room_id"
+else
+    echo "❌ Не удалось получить ID номера для тестирования internal endpoints"
+fi
 
-# Несуществующая комната
-echo -e "\n- Несуществующая комната:"
-curl -s -w "Status: %{http_code}\n" $BASE_URL/999
+echo ""
+echo "6. 🚫 ТЕСТИРОВАНИЕ ДОСТУПА"
 
-# Подтверждение доступности несуществующей комнаты
-echo -e "\n- Подтверждение доступности несуществующей комнаты:"
-curl -s -X POST -w "Status: %{http_code}\n" $BASE_URL/999/confirm-availability
+# Попытка создать номер с USER ролью (должно быть 403)
+make_request "POST" "$BASE_URL/rooms" "$ROOM_1_DATA" "$AUTH_USER" "Попытка создать номер с USER ролью (ожидается 403)"
 
-echo -e "\n\n🎉 Тестирование Room Controller завершено!"
+# Попытка использовать internal endpoint с USER ролью (должно быть 403)
+if [ ! -z "$room_id" ]; then
+    make_request "POST" "$BASE_URL/rooms/$room_id/confirm-availability" "" "$AUTH_USER" "Попытка подтвердить доступность с USER ролью (ожидается 403)"
+fi
+
+# Запрос без аутентификации (должно быть 401)
+echo ""
+echo "🔹 Запрос без аутентификации"
+curl -s -w " | HTTP_STATUS:%{http_code}" -X GET "$BASE_URL/rooms"
+echo ""
+
+echo ""
+echo "7. 🗑️ ОЧИСТКА (ADMIN ROLE)"
+
+if [ ! -z "$room_id" ]; then
+    # Удаляем созданные номера
+    rooms_response=$(curl -s -u $AUTH_USER "$BASE_URL/rooms")
+    room_ids=$(echo "$rooms_response" | grep -o '"id":[0-9]*' | cut -d':' -f2)
+
+    for id in $room_ids; do
+        make_request "DELETE" "$BASE_URL/rooms/$id" "" "$AUTH_ADMIN" "Удалить номер $id"
+    done
+
+    # Удаляем тестовый отель если создавали
+    if [ ! -z "$hotel_id" ]; then
+        make_request "DELETE" "$BASE_URL/hotels/$hotel_id" "" "$AUTH_ADMIN" "Удалить тестовый отель $hotel_id"
+    fi
+fi
+
+echo ""
+echo "=================================================="
+echo "🏁 ТЕСТИРОВАНИЕ ЗАВЕРШЕНО"
+echo "Finished at: $(date)"
+echo "=================================================="

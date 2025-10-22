@@ -13,6 +13,15 @@ spring:
 
       # Улучшенная конфигурация маршрутов
       routes:
+
+        # Маршрут для Swagger UI hotel-service
+        - id: hotel-service-swagger
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/swagger-ui/**
+          filters:
+            - StripPrefix=1  # Убирает /api из пути
+
         # Маршрут для Hotel Service
         - id: hotel-service-hotels
           uri: http://localhost:8081
@@ -26,6 +35,13 @@ spring:
           uri: http://localhost:8081
           predicates:
             - Path=/api/rooms/**
+          filters:
+            - StripPrefix=1  # Убирает /api из пути
+
+        - id: hotel-service-rooms
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/hotel/test/**
           filters:
             - StripPrefix=1  # Убирает /api из пути
 

@@ -1,66 +1,144 @@
 #!/bin/bash
 
-echo "🧪 Testing Hotel Controller API"
-echo "================================"
+# test-hotels.sh
+# Тестирование Hotel Management API
 
-BASE_URL="http://localhost:8080/api/hotels"
+BASE_URL="http://localhost:8080/api"
+AUTH_USER="user:password"
+AUTH_ADMIN="admin:password"
 
-# 1. Получить все отели
-echo -e "\n1. 🔍 GET /api/hotels"
-curl -s $BASE_URL
+echo "=================================================="
+echo "Hotel Management API Tests"
+echo "Started at: $(date)"
+echo "=================================================="
 
-# 2. Создать отель 1
-echo -e "\n\n2. ➕ POST /api/hotels - Отель 1"
-curl -s -X POST $BASE_URL \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Grand Hotel",
-    "address": "Moscow, Red Square 1",
-    "description": "Luxury 5-star hotel"
-  }'
+# Функция для выполнения запросов с логированием
+make_request() {
+    local method=$1
+    local url=$2
+    local data=$3
+    local auth=$4
+    local description=$5
 
-# 3. Создать отель 2
-echo -e "\n\n3. ➕ POST /api/hotels - Отель 2"
-curl -s -X POST $BASE_URL \
-  -H "Content-Type: application/json" \
-  -d '{
+    echo ""
+    echo "🔹 $description"
+    echo "➡️ $method $url"
+
+    local curl_cmd="curl -s -w ' | HTTP_STATUS:%{http_code}' -X $method '$url' -H 'Content-Type: application/json' -H 'Accept: application/json'"
+
+    if [ ! -z "$data" ]; then
+        curl_cmd="$curl_cmd -d '$data'"
+    fi
+
+    if [ ! -z "$auth" ]; then
+        curl_cmd="$curl_cmd -u $auth"
+    fi
+
+    local response=$(eval $curl_cmd)
+    echo "$response"
+
+    # Извлекаем HTTP статус
+    local http_status=$(echo "$response" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d':' -f2)
+
+    if [ "$http_status" -eq 200 ] || [ "$http_status" -eq 201 ]; then
+        echo "✅ SUCCESS (HTTP $http_status)"
+    else
+        echo "❌ FAILED (HTTP $http_status)"
+    fi
+
+    sleep 1
+}
+
+# Функция для извлечения ID из JSON ответа
+extract_id() {
+    echo "$1" | grep -o '"id":[0-9]*' | cut -d':' -f2 | head -1
+}
+
+echo ""
+echo "1. 🔍 ПОЛУЧЕНИЕ ДАННЫХ (USER ROLE)"
+
+make_request "GET" "$BASE_URL/hotels" "" "$AUTH_USER" "Получить все отели"
+
+# Сохраняем список отелей для получения ID
+hotels_response=$(curl -s -u $AUTH_USER "$BASE_URL/hotels")
+first_hotel_id=$(extract_id "$hotels_response")
+
+if [ ! -z "$first_hotel_id" ]; then
+    make_request "GET" "$BASE_URL/hotels/$first_hotel_id" "" "$AUTH_USER" "Получить отель по ID ($first_hotel_id)"
+else
+    echo ""
+    echo "⚠️ Нет отелей для тестирования, создаем новый..."
+fi
+
+echo ""
+echo "2. 🏨 СОЗДАНИЕ ОТЕЛЕЙ (ADMIN ROLE)"
+
+HOTEL_1_DATA='{
+    "name": "Grand Plaza Hotel",
+    "address": "123 Main Street, City Center",
+    "description": "Luxury 5-star hotel with premium amenities"
+}'
+
+make_request "POST" "$BASE_URL/hotels" "$HOTEL_1_DATA" "$AUTH_ADMIN" "Создать отель Grand Plaza"
+
+HOTEL_2_DATA='{
     "name": "Seaside Resort",
-    "address": "Sochi, Beach Boulevard 25",
-    "description": "Beachfront resort with spa"
-  }'
+    "address": "456 Beach Boulevard, Ocean View",
+    "description": "Beautiful resort with ocean views and private beach"
+}'
 
-# 4. Получить все отели (должны быть 2)
-echo -e "\n\n4. 🔍 GET /api/hotels (должны быть 2 отеля)"
-curl -s $BASE_URL
+make_request "POST" "$BASE_URL/hotels" "$HOTEL_2_DATA" "$AUTH_ADMIN" "Создать отель Seaside Resort"
 
-# 5. Получить отель по ID 1
-echo -e "\n\n5. 🔍 GET /api/hotels/1"
-curl -s $BASE_URL/1
+echo ""
+echo "3. 🔄 ОБНОВЛЕНИЕ ОТЕЛЕЙ (ADMIN ROLE)"
 
-# 6. Обновить отель 1
-echo -e "\n\n6. ✏️ PUT /api/hotels/1"
-curl -s -X PUT $BASE_URL/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "GRAND HOTEL UPDATED",
-    "address": "Moscow, Red Square 1 - RENOVATED",
-    "description": "Recently renovated luxury hotel"
-  }'
+# Получаем ID последнего созданного отеля
+hotels_response=$(curl -s -u $AUTH_USER "$BASE_URL/hotels")
+hotel_id=$(extract_id "$hotels_response")
 
-# 7. Проверить обновление
-echo -e "\n\n7. 🔍 GET /api/hotels/1 (проверить обновление)"
-curl -s $BASE_URL/1
+if [ ! -z "$hotel_id" ]; then
+    UPDATE_HOTEL_DATA='{
+        "name": "Grand Plaza Hotel UPDATED",
+        "address": "123 Updated Street, New City Center",
+        "description": "Luxury 5-star hotel - RECENTLY RENOVATED"
+    }'
 
-# 8. Удалить отель 2
-echo -e "\n\n8. 🗑️ DELETE /api/hotels/2"
-curl -s -X DELETE $BASE_URL/2
+    make_request "PUT" "$BASE_URL/hotels/$hotel_id" "$UPDATE_HOTEL_DATA" "$AUTH_ADMIN" "Обновить отель $hotel_id"
 
-# 9. Проверить что отель 2 удален
-echo -e "\n\n9. 🔍 GET /api/hotels/2 (должен быть 404)"
-curl -s -w "Status: %{http_code}\n" $BASE_URL/2
+    echo ""
+    echo "4. 🧪 ПРОВЕРКА ОБНОВЛЕННЫХ ДАННЫХ"
+    make_request "GET" "$BASE_URL/hotels/$hotel_id" "" "$AUTH_USER" "Проверить обновленный отель"
+else
+    echo "❌ Не удалось получить ID отеля для обновления"
+fi
 
-# 10. Финальный список отелей
-echo -e "\n\n10. 🔍 GET /api/hotels (финальный список)"
-curl -s $BASE_URL
+echo ""
+echo "5. 🚫 ТЕСТИРОВАНИЕ ДОСТУПА"
 
-echo -e "\n\n🎉 Тестирование завершено!"chmod +x test-hotel-controller.sh
+# Попытка создать отель с USER ролью (должно быть 403)
+make_request "POST" "$BASE_URL/hotels" "$HOTEL_1_DATA" "$AUTH_USER" "Попытка создать отель с USER ролью (ожидается 403)"
+
+# Запрос без аутентификации (должно быть 401)
+echo ""
+echo "🔹 Запрос без аутентификации"
+curl -s -w " | HTTP_STATUS:%{http_code}" -X GET "$BASE_URL/hotels"
+echo ""
+
+echo ""
+echo "6. 🗑️ ОЧИСТКА (ADMIN ROLE)"
+
+if [ ! -z "$hotel_id" ]; then
+    make_request "DELETE" "$BASE_URL/hotels/$hotel_id" "" "$AUTH_ADMIN" "Удалить отель $hotel_id"
+
+    # Проверяем что отель удален
+    echo ""
+    echo "🔹 Проверка удаления отеля"
+    curl -s -u $AUTH_USER -w " | HTTP_STATUS:%{http_code}" -X GET "$BASE_URL/hotels/$hotel_id"
+    echo ""
+fi
+
+echo ""
+echo "=================================================="
+echo "🏁 ТЕСТИРОВАНИЕ ЗАВЕРШЕНО"
+echo "Finished at: $(date)"
+echo "=================================================="
