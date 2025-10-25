@@ -11,20 +11,12 @@ import javax.crypto.spec.SecretKeySpec;
 @Configuration
 public class JwtConfig {
 
-    @Value("${spring.security.oauth2.resourceserver.jwt.secret-value}")
-    private String jwtSecret;
-
     @Bean
     public JwtDecoder jwtDecoder() {
-        byte[] keyBytes = jwtSecret.getBytes();
+        String secretString = "mySuperSecretKeyForJWTTokenGenerationInAuthService123!";
 
-        // Дополняем ключ до 32 байт если нужно
-        if (keyBytes.length < 32) {
-            byte[] paddedKey = new byte[32];
-            System.arraycopy(keyBytes, 0, paddedKey, 0, Math.min(keyBytes.length, 32));
-            keyBytes = paddedKey;
-        }
-
+        // Используйте ту же простую логику что и в auth service
+        byte[] keyBytes = secretString.getBytes();
         SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
         return NimbusJwtDecoder.withSecretKey(secretKey).build();
     }

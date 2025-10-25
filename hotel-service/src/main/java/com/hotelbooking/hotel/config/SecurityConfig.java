@@ -2,6 +2,7 @@ package com.hotelbooking.hotel.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -44,13 +45,22 @@ public class SecurityConfig {
                 .hasRole("INTERNAL")
 
                 // USER endpoints
-                .antMatchers("/hotels", "/hotels/{id}", "/rooms", "/rooms/{id}",
-                        "/rooms/hotel/{hotelId}", "/rooms/recommend")
-                .hasAnyRole("USER", "ADMIN")
+                .antMatchers(HttpMethod.GET, "/hotels", "/hotels/{id}", "/rooms", "/rooms/{id}","/rooms/recommend", "/rooms/{id}","/rooms/hotel/{hotelId}")
+                .hasAnyRole("USER", "ADMIN") // Должен работать для USER и ADMIN
 
-                // ADMIN endpoints
-                .antMatchers("/hotels", "/rooms").hasRole("ADMIN") // POST
-                .antMatchers("/hotels/{id}", "/rooms/{id}").hasRole("ADMIN") // PUT, DELETE
+                // ADMIN only endpoints
+                .antMatchers(HttpMethod.POST, "/hotels", "/rooms").hasRole("ADMIN")
+                .antMatchers(HttpMethod.PUT, "/hotels/{id}", "/rooms/{id}").hasRole("ADMIN")
+                .antMatchers(HttpMethod.DELETE, "/hotels/{id}", "/rooms/{id}").hasRole("ADMIN")
+
+//                // USER endpoints
+//                .antMatchers("/hotels", "/hotels/{id}", "/rooms", "/rooms/{id}",
+//                        "/rooms/hotel/{hotelId}", "/rooms/recommend")
+//                .hasAnyRole("USER", "ADMIN")
+//
+//                // ADMIN endpoints
+//                .antMatchers("/hotels", "/rooms").hasRole("ADMIN") // POST
+//                .antMatchers("/hotels/{id}", "/rooms/{id}").hasRole("ADMIN") // PUT, DELETE
 
                 .anyRequest().authenticated()
                 .and()

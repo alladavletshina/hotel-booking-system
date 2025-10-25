@@ -25,7 +25,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          secret-value: "mySuperSecretKeyThatIsAtLeast32BytesLongForJWTTokenGeneration123!"
+          secret-value: "mySuperSecretKeyForJWTTokenGenerationInAuthService123!"
 
 eureka:
   client:

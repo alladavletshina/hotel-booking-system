@@ -5,11 +5,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -32,6 +37,7 @@ public class SecurityConfig {
                         "/swagger-resources/**",
                         "/configuration/**",
                         "/booking/test/**",
+                        "/diagnostic/**",
                         "/actuator/health"
                 ).permitAll()
 
@@ -57,13 +63,31 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
-        grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
 
-        JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
-        jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
-        return jwtAuthenticationConverter;
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            List<GrantedAuthority> authorities = new ArrayList<>();
+
+            // Извлекаем роль из claim "role"
+            String role = jwt.getClaim("role");
+            System.out.println("=== JWT DEBUG ===");
+            System.out.println("Username: " + jwt.getSubject());
+            System.out.println("Role from token: " + role);
+
+            if (role != null && !role.trim().isEmpty()) {
+                // Добавляем с префиксом ROLE_ для Spring Security
+                String authority = "ROLE_" + role;
+                authorities.add(new SimpleGrantedAuthority(authority));
+                System.out.println("Added authority: " + authority);
+            }
+
+            System.out.println("Final authorities: " + authorities);
+            System.out.println("==================");
+
+            return authorities;
+        });
+
+        return converter;
     }
 
     @Bean
