@@ -15,7 +15,7 @@ public class UserMapper {
         UserDto dto = new UserDto();
         dto.setId(user.getId());
         dto.setUsername(user.getUsername());
-        dto.setPassword(null); // Не возвращаем пароль в DTO для безопасности
+        dto.setPassword(null); // Никогда не возвращаем пароль в DTO
         dto.setEmail(user.getEmail());
         dto.setFirstName(user.getFirstName());
         dto.setLastName(user.getLastName());
@@ -33,7 +33,12 @@ public class UserMapper {
         User user = new User();
         user.setId(dto.getId());
         user.setUsername(dto.getUsername());
-        user.setPassword(dto.getPassword()); // Теперь password доступен
+
+        // Пароль устанавливается только если он предоставлен и не null
+        if (dto.getPassword() != null && !dto.getPassword().trim().isEmpty()) {
+            user.setPassword(dto.getPassword());
+        }
+
         user.setEmail(dto.getEmail());
         user.setFirstName(dto.getFirstName());
         user.setLastName(dto.getLastName());

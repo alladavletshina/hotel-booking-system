@@ -1,11 +1,11 @@
 server:
-  port: 8083
+  port: 8081
 
 spring:
   application:
-    name: booking-service
+    name: auth-service
   datasource:
-    url: jdbc:h2:mem:bookingdb
+    url: jdbc:h2:mem:authdb
     driverClassName: org.h2.Driver
     username: sa
     password:
@@ -21,11 +21,11 @@ spring:
     console:
       enabled: true
       path: /h2-console
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          secret-value: "mySuperSecretKeyThatIsAtLeast32BytesLongForJWTTokenGeneration123!"
+
+# JWT Configuration
+jwt:
+  secret: "mySuperSecretKeyForJWTTokenGenerationInAuthService123!"
+  expiration: 3600000
 
 eureka:
   client:
@@ -33,23 +33,6 @@ eureka:
       defaultZone: http://admin:admin123@localhost:8761/eureka
     register-with-eureka: true
     fetch-registry: true
-    enabled: true
-  instance:
-    prefer-ip-address: true
-    instance-id: ${spring.application.name}:${server.port}
-
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000
-        readTimeout: 5000
-        loggerLevel: basic
-
-logging:
-  level:
-    com.hotelbooking.booking: DEBUG
-    org.springframework.security: DEBUG
 
 springdoc:
   api-docs:
@@ -69,3 +52,13 @@ management:
   endpoint:
     health:
       show-details: always
+
+logging:
+  level:
+    com.hotelbooking.auth: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type: TRACE
+    org.springframework.web: DEBUG
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO

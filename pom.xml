@@ -16,6 +16,7 @@
         <module>api-gateway</module>  <!-- ДОБАВЛЯЕМ ЭТУ СТРОЧКУ -->
         <module>hotel-service</module>
         <module>booking-service</module>
+        <module>auth-service</module>
     </modules>
 
     <properties>

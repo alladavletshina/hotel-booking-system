@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/hotels")
 @Tag(name = "Hotels", description = "API для управления отелями")
-@SecurityRequirement(name = "basicAuth")
+@SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 public class HotelController {
 
@@ -90,4 +90,5 @@ public class HotelController {
         hotelService.deleteById(id);
         return ResponseEntity.ok().build();
     }
+
 }

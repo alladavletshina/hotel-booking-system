@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/hotel/test")
 public class TestController {
 
-    @GetMapping("/hello")
+    @GetMapping
     public String test() {
         return "Test endpoint is working! Hotel Service is alive!";
     }

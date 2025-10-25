@@ -11,61 +11,46 @@ spring:
           enabled: true
           lower-case-service-id: true
 
-      # Улучшенная конфигурация маршрутов
+      # Исправленная конфигурация маршрутов без RateLimiter
       routes:
+        # Hotel Service
+        - id: hotel-service
+          uri: http://localhost:8082  # исправлен порт
+          predicates:
+            - Path=/api/hotels/**, /api/rooms/**, /api/hotel/test/**
+          filters:
+            - StripPrefix=1
 
-        # Маршрут для Swagger UI hotel-service
-        - id: hotel-service-swagger
+        # Booking Service
+        - id: booking-service
+          uri: http://localhost:8083  # исправлен порт
+          predicates:
+            - Path=/api/bookings/**, /api/admin/users/**, /api/booking/test/**
+          filters:
+            - StripPrefix=1
+
+        # Auth Service
+        - id: auth-service
           uri: http://localhost:8081
           predicates:
-            - Path=/api/swagger-ui/**
+            - Path=/api/auth/**
           filters:
-            - StripPrefix=1  # Убирает /api из пути
+            - StripPrefix=1
 
-        # Маршрут для Hotel Service
-        - id: hotel-service-hotels
-          uri: http://localhost:8081
+        # Публичные endpoints (без аутентификации)
+        - id: public-endpoints
+          uri: http://localhost:8084
           predicates:
-            - Path=/api/hotels/**
-          filters:
-            - StripPrefix=1  # Убирает /api из пути
+            - Path=/public/**, /actuator/health, /h2-console/**
 
-        # Маршрут для Hotel Service (комнаты)
-        - id: hotel-service-rooms
-          uri: http://localhost:8081
-          predicates:
-            - Path=/api/rooms/**
-          filters:
-            - StripPrefix=1  # Убирает /api из пути
-
-        - id: hotel-service-rooms
-          uri: http://localhost:8081
-          predicates:
-            - Path=/api/hotel/test/**
-          filters:
-            - StripPrefix=1  # Убирает /api из пути
-
-        # Маршрут для Booking Service
-        - id: booking-service-test
-          uri: http://localhost:8082
-          predicates:
-            - Path=/api/test/**
-          filters:
-            - StripPrefix=1  # Убирает /api из пути
-
-        - id: booking-service-auth
-          uri: http://localhost:8082
-          predicates:
-            - Path=/api/user/**
-          filters:
-            - StripPrefix=1  # Убирает /api из пути
-
-        - id: booking-service-booking
-          uri: http://localhost:8082
-          predicates:
-            - Path=/api/bookings/**
-          filters:
-            - StripPrefix=1  # Убирает /api из пути
+eureka:
+  client:
+    service-url:
+      defaultZone: http://admin:admin123@localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
 
 management:
   endpoints:
@@ -78,12 +63,7 @@ management:
     health:
       show-details: always
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://admin:admin123@localhost:8761/eureka
-
 logging:
   level:
-    org.springframework.cloud.gateway: TRACE
-    reactor.netty.http.client: DEBUG
+    org.springframework.cloud.gateway: INFO
+    reactor.netty.http.client: INFO

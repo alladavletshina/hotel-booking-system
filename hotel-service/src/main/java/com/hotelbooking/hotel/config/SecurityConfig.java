@@ -5,13 +5,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -23,56 +24,70 @@ public class SecurityConfig {
         http
                 .csrf().disable()
                 .authorizeRequests()
+                // Public endpoints
                 .antMatchers(
                         "/",
                         "/swagger-ui.html",
                         "/swagger-ui/**",
-                        "/api-docs",
-                        "/api-docs/**",
                         "/v3/api-docs/**",
                         "/webjars/**",
                         "/swagger-resources/**",
-                        "/configuration/**"
+                        "/configuration/**",
+                        "/h2-console/**",
+                        "/actuator/health"
                 ).permitAll()
-                .antMatchers("/hotel/test/**").permitAll()  // Разрешаем ВСЕ тестовые endpoints без аутентификации
-                .anyRequest().authenticated()  // Все остальные требуют аутентификации
+
+                .antMatchers("/hotel/test/**").permitAll()
+
+                // INTERNAL endpoints
+                .antMatchers("/rooms/*/confirm-availability", "/rooms/*/release")
+                .hasRole("INTERNAL")
+
+                // USER endpoints
+                .antMatchers("/hotels", "/hotels/{id}", "/rooms", "/rooms/{id}",
+                        "/rooms/hotel/{hotelId}", "/rooms/recommend")
+                .hasAnyRole("USER", "ADMIN")
+
+                // ADMIN endpoints
+                .antMatchers("/hotels", "/rooms").hasRole("ADMIN") // POST
+                .antMatchers("/hotels/{id}", "/rooms/{id}").hasRole("ADMIN") // PUT, DELETE
+
+                .anyRequest().authenticated()
                 .and()
-                .httpBasic();
+                .headers().frameOptions().disable() // Для H2 console
+                .and()
+                .oauth2ResourceServer()
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()));
 
         return http.build();
     }
 
     @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails user = User.builder()
-                .username("user")
-                .password(passwordEncoder.encode("password"))
-                .roles("USER")
-                .build();
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
 
-        UserDetails admin = User.builder()
-                .username("admin")
-                .password(passwordEncoder.encode("password"))
-                .roles("USER", "ADMIN")
-                .build();
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            List<GrantedAuthority> authorities = new ArrayList<>();
 
-        UserDetails internal = User.builder()
-                .username("internal")
-                .password(passwordEncoder.encode("password"))
-                .roles("INTERNAL")
-                .build();
+            // Извлекаем роль из claim "role"
+            String role = jwt.getClaim("role");
+            System.out.println("=== JWT DEBUG ===");
+            System.out.println("Username: " + jwt.getSubject());
+            System.out.println("Role from token: " + role);
 
-        System.out.println("=== Created test users ===");
-        System.out.println("user/password (ROLE_USER)");
-        System.out.println("admin/password (ROLE_ADMIN)");
-        System.out.println("internal/password (ROLE_INTERNAL)");
-        System.out.println("==========================");
+            if (role != null && !role.trim().isEmpty()) {
+                // Добавляем с префиксом ROLE_ для Spring Security
+                String authority = "ROLE_" + role;
+                authorities.add(new SimpleGrantedAuthority(authority));
+                System.out.println("Added authority: " + authority);
+            }
 
-        return new InMemoryUserDetailsManager(user, admin, internal);
-    }
+            System.out.println("Final authorities: " + authorities);
+            System.out.println("==================");
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+            return authorities;
+        });
+
+        return converter;
     }
 }

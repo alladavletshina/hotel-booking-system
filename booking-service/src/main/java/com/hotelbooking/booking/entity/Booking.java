@@ -14,9 +14,11 @@ public class Booking {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId; // Теперь просто ID пользователя из JWT токена
+
+    @Column(name = "username", nullable = false)
+    private String username; // Имя пользователя из JWT токена
 
     @Column(name = "room_id", nullable = false)
     private Long roomId;
@@ -38,9 +40,8 @@ public class Booking {
     private LocalDateTime updatedAt;
 
     @Column(name = "correlation_id")
-    private String correlationId; // Для идемпотентности
+    private String correlationId;
 
-    // Автоматически устанавливаем даты
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
