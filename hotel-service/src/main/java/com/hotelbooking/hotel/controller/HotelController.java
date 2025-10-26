@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -54,9 +55,13 @@ public class HotelController {
     })
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    public ResponseEntity<HotelDto> getHotel(@Parameter(description = "ID отеля") @PathVariable Long id) {
-        Hotel hotel = hotelService.findById(id);
-        return ResponseEntity.ok(hotelMapper.toDto(hotel));
+    public ResponseEntity<?> getHotel(@PathVariable Long id) {
+        try {
+            Hotel hotel = hotelService.findById(id);
+            return ResponseEntity.ok(hotel);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+        }
     }
 
     @Operation(summary = "Создать отель", description = "Создает новый отель (только для ADMIN)")
@@ -75,12 +80,16 @@ public class HotelController {
     @Operation(summary = "Обновить отель", description = "Обновляет данные отеля (только для ADMIN)")
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<HotelDto> updateHotel(
+    public ResponseEntity<?> updateHotel(
             @Parameter(description = "ID отеля") @PathVariable Long id,
             @Parameter(description = "Обновленные данные отеля") @RequestBody HotelDto hotelDto) {
-        Hotel hotel = hotelMapper.toEntity(hotelDto);
-        Hotel updated = hotelService.update(id, hotel);
-        return ResponseEntity.ok(hotelMapper.toDto(updated));
+        try {
+            Hotel hotel = hotelMapper.toEntity(hotelDto);
+            Hotel updated = hotelService.update(id, hotel);
+            return ResponseEntity.ok(hotelMapper.toDto(updated));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+        }
     }
 
     @Operation(summary = "Удалить отель", description = "Удаляет отель по ID (только для ADMIN)")
