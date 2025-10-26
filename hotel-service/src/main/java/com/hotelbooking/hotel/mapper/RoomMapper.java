@@ -1,11 +1,18 @@
 package com.hotelbooking.hotel.mapper;
 
 import com.hotelbooking.hotel.dto.RoomDto;
+import com.hotelbooking.hotel.entity.Hotel;
 import com.hotelbooking.hotel.entity.Room;
+import com.hotelbooking.hotel.repository.HotelRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+
 @Component
+@RequiredArgsConstructor
 public class RoomMapper {
+
+    private final HotelRepository hotelRepository; // ← ДОБАВЬТЕ ЭТО
 
     public RoomDto toDto(Room room) {
         if (room == null) {
@@ -44,7 +51,13 @@ public class RoomMapper {
         // Защита от null
         room.setTimesBooked(roomDto.getTimesBooked() != null ? roomDto.getTimesBooked() : 0);
 
-        // Hotel устанавливается отдельно через service
+        // ДОБАВЬТЕ ЭТУ ЛОГИКУ ДЛЯ УСТАНОВКИ HOTEL:
+        if (roomDto.getHotelId() != null) {
+            Hotel hotel = hotelRepository.findById(roomDto.getHotelId())
+                    .orElseThrow(() -> new RuntimeException("Hotel not found with id: " + roomDto.getHotelId()));
+            room.setHotel(hotel);
+        }
+
         return room;
     }
 }
