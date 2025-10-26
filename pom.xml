@@ -13,7 +13,7 @@
 
     <modules>
         <module>eureka-server</module>
-        <module>api-gateway</module>  <!-- ДОБАВЛЯЕМ ЭТУ СТРОЧКУ -->
+        <module>api-gateway</module>
         <module>hotel-service</module>
         <module>booking-service</module>
         <module>auth-service</module>

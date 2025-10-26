@@ -27,30 +27,46 @@ spring:
         jwt:
           secret-value: "mySuperSecretKeyForJWTTokenGenerationInAuthService123!"
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://admin:admin123@localhost:8761/eureka
-    register-with-eureka: true
-    fetch-registry: true
-    enabled: true
-  instance:
-    prefer-ip-address: true
-    instance-id: ${spring.application.name}:${server.port}
+# Internal service configuration for inter-service communication
+internal:
+  service:
+    username: internal-service
+    password: internal-secret-123
 
+# Auth service configuration - ИСПРАВЛЕНО
+auth:
+  service:
+    url: http://localhost:8080/api/auth  # ← ВАЖНО: через API Gateway
+
+# Hotel service configuration
+hotel:
+  service:
+    url: http://localhost:8082
+
+# Feign client configuration
 feign:
   client:
     config:
       default:
         connectTimeout: 5000
         readTimeout: 5000
-        loggerLevel: basic
+        loggerLevel: full
+      hotel-service:
+        url: http://localhost:8082
+  httpclient:
+    enabled: true
 
-logging:
-  level:
-    com.hotelbooking.booking: DEBUG
-    org.springframework.security: DEBUG
+# Eureka configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://admin:admin123@localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
 
+# SpringDoc configuration
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -58,9 +74,8 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     enabled: true
-    operations-sorter: method
-    tags-sorter: alpha
 
+# Actuator configuration
 management:
   endpoints:
     web:
@@ -69,3 +84,13 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Logging configuration
+logging:
+  level:
+    com.hotelbooking.booking: DEBUG
+    com.hotelbooking.booking.service.InternalAuthService: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: INFO
+    feign: DEBUG
+    com.hotelbooking.booking.client.HotelServiceClient: DEBUG

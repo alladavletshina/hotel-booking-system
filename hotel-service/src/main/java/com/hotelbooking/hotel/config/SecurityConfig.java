@@ -8,10 +8,13 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+import javax.crypto.spec.SecretKeySpec;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,7 +45,7 @@ public class SecurityConfig {
 
                 // INTERNAL endpoints
                 .antMatchers("/rooms/*/confirm-availability", "/rooms/*/release")
-                .hasRole("INTERNAL")
+                .hasRole("INTERNAL")  // Закомментируйте эту строку
 
                 // USER endpoints
                 .antMatchers(HttpMethod.GET, "/hotels", "/hotels/{id}", "/rooms", "/rooms/{id}","/rooms/recommend", "/rooms/{id}","/rooms/hotel/{hotelId}")
@@ -53,18 +56,9 @@ public class SecurityConfig {
                 .antMatchers(HttpMethod.PUT, "/hotels/{id}", "/rooms/{id}").hasRole("ADMIN")
                 .antMatchers(HttpMethod.DELETE, "/hotels/{id}", "/rooms/{id}").hasRole("ADMIN")
 
-//                // USER endpoints
-//                .antMatchers("/hotels", "/hotels/{id}", "/rooms", "/rooms/{id}",
-//                        "/rooms/hotel/{hotelId}", "/rooms/recommend")
-//                .hasAnyRole("USER", "ADMIN")
-//
-//                // ADMIN endpoints
-//                .antMatchers("/hotels", "/rooms").hasRole("ADMIN") // POST
-//                .antMatchers("/hotels/{id}", "/rooms/{id}").hasRole("ADMIN") // PUT, DELETE
-
                 .anyRequest().authenticated()
                 .and()
-                .headers().frameOptions().disable() // Для H2 console
+                .headers().frameOptions().disable()
                 .and()
                 .oauth2ResourceServer()
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()));
@@ -99,5 +93,13 @@ public class SecurityConfig {
         });
 
         return converter;
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        String secretString = "mySuperSecretKeyForJWTTokenGenerationInAuthService123!";
+        byte[] keyBytes = secretString.getBytes();
+        SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
+        return NimbusJwtDecoder.withSecretKey(secretKey).build();
     }
 }

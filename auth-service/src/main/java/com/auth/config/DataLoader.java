@@ -29,5 +29,19 @@ public class DataLoader implements CommandLineRunner {
             authService.saveUser(admin);
             System.out.println("Default admin user created: admin / admin123");
         }
+
+        // Создаем INTERNAL пользователя для межсервисного взаимодействия
+        if (authService.findByUsername("internal-service").isEmpty()) {
+            User internalUser = new User();
+            internalUser.setUsername("internal-service");
+            internalUser.setPassword(passwordEncoder.encode("internal-secret-123"));
+            internalUser.setEmail("internal@hotelbooking.com");
+            internalUser.setFirstName("Internal");
+            internalUser.setLastName("Service");
+            internalUser.setRole("INTERNAL");
+
+            authService.saveUser(internalUser);
+            System.out.println("Internal service user created: internal-service / internal-secret-123");
+        }
     }
 }
