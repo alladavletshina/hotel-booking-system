@@ -22,7 +22,6 @@ spring:
       enabled: true
       path: /h2-console
 
-# JWT Configuration
 jwt:
   secret: "mySuperSecretKeyForJWTTokenGenerationInAuthService123!"
   expiration: 3600000

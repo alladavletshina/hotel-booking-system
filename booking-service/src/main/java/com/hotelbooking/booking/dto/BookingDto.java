@@ -17,5 +17,5 @@ public class BookingDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String correlationId;
-    private Boolean autoSelect; // НОВОЕ ПОЛЕ
+    private Boolean autoSelect;
 }

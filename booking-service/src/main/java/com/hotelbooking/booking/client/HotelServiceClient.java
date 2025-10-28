@@ -26,7 +26,6 @@ public interface HotelServiceClient {
     void releaseRoom(@PathVariable("roomId") Long roomId,
                      @RequestBody ReleaseRequest request);
 
-    // Новые методы для работы с датами
     @PostMapping("/rooms/{roomId}/confirm-availability-with-dates")
     Boolean confirmAvailabilityWithDates(@PathVariable("roomId") Long roomId,
                                          @RequestBody AvailabilityRequest request);
@@ -39,7 +38,6 @@ public interface HotelServiceClient {
     void cancelBooking(@PathVariable("roomId") Long roomId,
                        @RequestBody BookingConfirmationRequest request);
 
-    // НОВЫЙ МЕТОД для автоподбора комнаты
     @GetMapping("/rooms/recommend/date")
     List<RoomRecommendation> getRecommendedRooms(
             @RequestParam("startDate") LocalDate startDate,

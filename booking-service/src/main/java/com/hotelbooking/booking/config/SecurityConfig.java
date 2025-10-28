@@ -25,7 +25,7 @@ public class SecurityConfig {
         http
                 .csrf().disable()
                 .authorizeRequests()
-                // Public endpoints
+
                 .antMatchers(
                         "/",
                         "/swagger-ui.html",
@@ -40,13 +40,10 @@ public class SecurityConfig {
                         "/actuator/health"
                 ).permitAll()
 
-                // H2 Console (для разработки)
                 .antMatchers("/h2-console/**").permitAll()
 
-                // ADMIN endpoints - управление пользователями
                 .antMatchers("/admin/users/**").hasRole("ADMIN")
 
-                // BOOKING endpoints - требуют аутентификации
                 .antMatchers("/bookings/**").hasAnyRole("USER", "ADMIN")
 
                 .anyRequest().authenticated()
@@ -67,14 +64,13 @@ public class SecurityConfig {
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
             List<GrantedAuthority> authorities = new ArrayList<>();
 
-            // Извлекаем роль из claim "role"
             String role = jwt.getClaim("role");
             System.out.println("=== JWT DEBUG ===");
             System.out.println("Username: " + jwt.getSubject());
             System.out.println("Role from token: " + role);
 
             if (role != null && !role.trim().isEmpty()) {
-                // Добавляем с префиксом ROLE_ для Spring Security
+
                 String authority = "ROLE_" + role;
                 authorities.add(new SimpleGrantedAuthority(authority));
                 System.out.println("Added authority: " + authority);

@@ -11,11 +11,10 @@ spring:
           enabled: true
           lower-case-service-id: true
 
-      # Исправленная конфигурация маршрутов без RateLimiter
       routes:
         # Hotel Service
         - id: hotel-service
-          uri: http://localhost:8082  # исправлен порт
+          uri: http://localhost:8082
           predicates:
             - Path=/api/hotels/**, /api/rooms/**, /api/hotel/**
           filters:
@@ -23,7 +22,7 @@ spring:
 
         # Booking Service
         - id: booking-service
-          uri: http://localhost:8083  # исправлен порт
+          uri: http://localhost:8083
           predicates:
             - Path=/api/bookings/**, /api/admin/users/**, /api/booking/test/**
           filters:
@@ -37,7 +36,7 @@ spring:
           filters:
             - StripPrefix=1
 
-        # Публичные endpoints (без аутентификации)
+        # Публичные endpoints
         - id: public-endpoints
           uri: http://localhost:8084
           predicates:

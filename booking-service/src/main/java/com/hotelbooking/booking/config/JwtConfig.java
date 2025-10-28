@@ -15,7 +15,6 @@ public class JwtConfig {
     public JwtDecoder jwtDecoder() {
         String secretString = "mySuperSecretKeyForJWTTokenGenerationInAuthService123!";
 
-        // Используйте ту же простую логику что и в auth service
         byte[] keyBytes = secretString.getBytes();
         SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
         return NimbusJwtDecoder.withSecretKey(secretKey).build();
