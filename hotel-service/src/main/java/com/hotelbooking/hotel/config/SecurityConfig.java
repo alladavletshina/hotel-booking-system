@@ -43,6 +43,9 @@ public class SecurityConfig {
 
                 .antMatchers("/hotel/test/**").permitAll()
 
+                .antMatchers(HttpMethod.GET, "/hotels/*/statistics", "/hotels/statistics/**", "/hotels/*/popular-rooms", "/hotels/*/occupancy-daily")
+                .hasRole("ADMIN")
+
                 // INTERNAL endpoints
                 .antMatchers("/rooms/*/confirm-availability", "/rooms/*/release")
                 .hasRole("INTERNAL")  // Закомментируйте эту строку
