@@ -2,7 +2,6 @@ package com.hotelbooking.hotel.service;
 
 import com.hotelbooking.hotel.dto.statistics.HotelStatisticsDto;
 import com.hotelbooking.hotel.dto.statistics.RoomPopularityDto;
-import com.hotelbooking.hotel.dto.statistics.RoomTypeStatistics;
 import com.hotelbooking.hotel.entity.Hotel;
 import com.hotelbooking.hotel.entity.Room;
 import com.hotelbooking.hotel.entity.BookingSlot;
@@ -49,13 +48,13 @@ class HotelStatisticsServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Setup test hotel
+
         testHotel = new Hotel();
         testHotel.setId(HOTEL_ID);
         testHotel.setName("Test Hotel");
         testHotel.setAddress("Test Address");
 
-        // Setup test rooms
+
         testRoom1 = new Room();
         testRoom1.setId(1L);
         testRoom1.setNumber("101");
@@ -74,7 +73,7 @@ class HotelStatisticsServiceTest {
         testRoom2.setTimesBooked(5);
         testRoom2.setHotel(testHotel);
 
-        // Setup test booking slot
+
         testBookingSlot = new BookingSlot();
         testBookingSlot.setId(1L);
         testBookingSlot.setRoomId(1L);
@@ -89,26 +88,22 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getHotelStatistics_WithValidData_ShouldReturnStatistics() {
-        // Arrange
+
         List<Room> hotelRooms = Arrays.asList(testRoom1, testRoom2);
-        List<BookingSlot> bookingSlots = Arrays.asList(testBookingSlot);
 
         when(hotelRepository.findById(HOTEL_ID)).thenReturn(Optional.of(testHotel));
         when(roomRepository.findByHotelId(HOTEL_ID)).thenReturn(hotelRooms);
-        // Разрешаем множественные вызовы findByHotelId
+
         when(bookingSlotRepository.findConflictingSlots(anyLong(), eq(START_DATE), eq(END_DATE)))
                 .thenReturn(Collections.emptyList())
                 .thenReturn(Collections.singletonList(testBookingSlot));
 
-        // Act
         HotelStatisticsDto result = hotelStatisticsService.getHotelStatistics(HOTEL_ID, START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertEquals(HOTEL_ID, result.getHotelId());
         assertEquals("Test Hotel", result.getHotelName());
 
-        // Исправлено: разрешаем 2 вызова findByHotelId
         verify(roomRepository, times(2)).findByHotelId(HOTEL_ID);
         verify(bookingSlotRepository, times(2)).findConflictingSlots(anyLong(), eq(START_DATE), eq(END_DATE));
     }
@@ -118,10 +113,9 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getHotelStatistics_WithNonExistingHotel_ShouldThrowException() {
-        // Arrange
+
         when(hotelRepository.findById(HOTEL_ID)).thenReturn(Optional.empty());
 
-        // Act & Assert
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> hotelStatisticsService.getHotelStatistics(HOTEL_ID, START_DATE, END_DATE));
 
@@ -135,19 +129,16 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getHotelStatistics_WithNoRooms_ShouldReturnEmptyStatistics() {
-        // Arrange
+
         when(hotelRepository.findById(HOTEL_ID)).thenReturn(Optional.of(testHotel));
         when(roomRepository.findByHotelId(HOTEL_ID)).thenReturn(Collections.emptyList());
 
-        // Act
         HotelStatisticsDto result = hotelStatisticsService.getHotelStatistics(HOTEL_ID, START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertEquals(0, result.getTotalRooms());
         assertEquals(0, result.getAvailableRooms());
 
-        // Исправлено: разрешаем 2 вызова для пустого списка
         verify(roomRepository, times(2)).findByHotelId(HOTEL_ID);
         verify(bookingSlotRepository, never()).findConflictingSlots(anyLong(), any(), any());
     }
@@ -157,7 +148,7 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getHotelsComparison_WithMultipleHotels_ShouldReturnSortedList() {
-        // Arrange
+
         Hotel hotel1 = new Hotel();
         hotel1.setId(1L);
         hotel1.setName("Hotel 1");
@@ -182,26 +173,21 @@ class HotelStatisticsServiceTest {
         room2.setPrice(100.0);
         room2.setAvailable(true);
 
-        // Мокаем вызовы для первого отеля
         when(hotelRepository.findById(1L)).thenReturn(Optional.of(hotel1));
-        when(roomRepository.findByHotelId(1L)).thenReturn(Arrays.asList(room1));
+        when(roomRepository.findByHotelId(1L)).thenReturn(List.of(room1));
 
-        // Мокаем вызовы для второго отеля
         when(hotelRepository.findById(2L)).thenReturn(Optional.of(hotel2));
-        when(roomRepository.findByHotelId(2L)).thenReturn(Arrays.asList(room2));
+        when(roomRepository.findByHotelId(2L)).thenReturn(List.of(room2));
 
         when(hotelRepository.findAll()).thenReturn(hotels);
         when(bookingSlotRepository.findConflictingSlots(anyLong(), eq(START_DATE), eq(END_DATE)))
                 .thenReturn(Collections.emptyList());
 
-        // Act
         List<HotelStatisticsDto> result = hotelStatisticsService.getHotelsComparison(START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertEquals(2, result.size());
 
-        // Проверяем что статистика содержит оба отеля
         Set<Long> hotelIds = result.stream()
                 .map(HotelStatisticsDto::getHotelId)
                 .collect(Collectors.toSet());
@@ -220,7 +206,7 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getDailyOccupancy_WithValidData_ShouldReturnDailyOccupancy() {
-        // Arrange
+
         List<Room> hotelRooms = Arrays.asList(testRoom1, testRoom2);
         LocalDate testStartDate = LocalDate.now().minusDays(2);
         LocalDate testEndDate = LocalDate.now();
@@ -230,14 +216,11 @@ class HotelStatisticsServiceTest {
                 .thenReturn(Collections.emptyList())
                 .thenReturn(Collections.singletonList(testBookingSlot));
 
-        // Act
         Map<LocalDate, Double> result = hotelStatisticsService.getDailyOccupancy(HOTEL_ID, testStartDate, testEndDate);
 
-        // Assert
         assertNotNull(result);
         assertFalse(result.isEmpty());
 
-        // Исправлено: разрешаем 2 вызова
         verify(roomRepository, times(2)).findByHotelId(HOTEL_ID);
         verify(bookingSlotRepository, times(2)).findConflictingSlots(anyLong(), eq(testStartDate), eq(testEndDate));
     }
@@ -247,7 +230,7 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getPopularRooms_WithMultipleRooms_ShouldReturnSortedListWithRanks() {
-        // Arrange
+
         Room popularRoom = new Room();
         popularRoom.setId(1L);
         popularRoom.setNumber("101");
@@ -267,10 +250,8 @@ class HotelStatisticsServiceTest {
 
         when(roomRepository.findByHotelId(HOTEL_ID)).thenReturn(hotelRooms);
 
-        // Act
         List<RoomPopularityDto> result = hotelStatisticsService.getPopularRooms(HOTEL_ID, limit);
 
-        // Assert
         assertNotNull(result);
         assertEquals(limit, result.size());
         assertEquals(1, result.get(0).getPopularityRank());
@@ -284,7 +265,7 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getHotelStatistics_WithDifferentRoomTypes_ShouldGroupStatisticsByType() {
-        // Arrange
+
         Room deluxeRoom1 = new Room();
         deluxeRoom1.setId(1L);
         deluxeRoom1.setType("DELUXE");
@@ -310,14 +291,11 @@ class HotelStatisticsServiceTest {
         when(bookingSlotRepository.findConflictingSlots(anyLong(), eq(START_DATE), eq(END_DATE)))
                 .thenReturn(Collections.emptyList());
 
-        // Act
         HotelStatisticsDto result = hotelStatisticsService.getHotelStatistics(HOTEL_ID, START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertNotNull(result.getRoomTypeStats());
 
-        // Исправлено: разрешаем 2 вызова
         verify(roomRepository, times(2)).findByHotelId(HOTEL_ID);
         verify(bookingSlotRepository, times(3)).findConflictingSlots(anyLong(), eq(START_DATE), eq(END_DATE));
     }
@@ -327,7 +305,7 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getHotelStatistics_WithBookings_ShouldCalculateRevenueCorrectly() {
-        // Arrange
+
         Room expensiveRoom = new Room();
         expensiveRoom.setId(1L);
         expensiveRoom.setPrice(300.0);
@@ -355,14 +333,11 @@ class HotelStatisticsServiceTest {
         when(bookingSlotRepository.findConflictingSlots(eq(2L), eq(START_DATE), eq(END_DATE)))
                 .thenReturn(Collections.emptyList());
 
-        // Act
         HotelStatisticsDto result = hotelStatisticsService.getHotelStatistics(HOTEL_ID, START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertTrue(result.getTotalRevenue() > 0);
 
-        // Исправлено: разрешаем 2 вызова
         verify(roomRepository, times(2)).findByHotelId(HOTEL_ID);
     }
 
@@ -371,7 +346,7 @@ class HotelStatisticsServiceTest {
      */
     @Test
     void getHotelStatistics_WithRoomsOfDifferentPopularity_ShouldIdentifyExtremes() {
-        // Arrange
+
         Room mostPopular = new Room();
         mostPopular.setId(1L);
         mostPopular.setNumber("101");
@@ -400,10 +375,8 @@ class HotelStatisticsServiceTest {
         when(bookingSlotRepository.findConflictingSlots(anyLong(), eq(START_DATE), eq(END_DATE)))
                 .thenReturn(Collections.emptyList());
 
-        // Act
         HotelStatisticsDto result = hotelStatisticsService.getHotelStatistics(HOTEL_ID, START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertNotNull(result.getMostPopularRoom());
         assertNotNull(result.getLeastPopularRoom());
@@ -411,7 +384,6 @@ class HotelStatisticsServiceTest {
         assertEquals(mostPopular.getId(), result.getMostPopularRoom().getRoomId());
         assertEquals(leastPopular.getId(), result.getLeastPopularRoom().getRoomId());
 
-        // Исправлено: разрешаем 2 вызова
         verify(roomRepository, times(2)).findByHotelId(HOTEL_ID);
     }
 }

@@ -51,7 +51,7 @@ class HotelServiceTest {
      */
     @Test
     void findAll_ShouldReturnAllHotels() {
-        // Arrange
+
         Hotel hotel1 = new Hotel();
         hotel1.setId(1L);
         hotel1.setName("Hotel 1");
@@ -64,10 +64,10 @@ class HotelServiceTest {
 
         when(hotelRepository.findAll()).thenReturn(expectedHotels);
 
-        // Act
+
         List<Hotel> result = hotelService.findAll();
 
-        // Assert
+
         assertNotNull(result);
         assertEquals(2, result.size());
         assertEquals(expectedHotels, result);
@@ -88,13 +88,13 @@ class HotelServiceTest {
      */
     @Test
     void findAll_WhenNoHotels_ShouldReturnEmptyList() {
-        // Arrange
-        when(hotelRepository.findAll()).thenReturn(Arrays.asList());
 
-        // Act
+        when(hotelRepository.findAll()).thenReturn(List.of());
+
+
         List<Hotel> result = hotelService.findAll();
 
-        // Assert
+
         assertNotNull(result);
         assertTrue(result.isEmpty());
 
@@ -114,13 +114,13 @@ class HotelServiceTest {
      */
     @Test
     void findById_WithExistingId_ShouldReturnHotel() {
-        // Arrange
+
         when(hotelRepository.findById(HOTEL_ID)).thenReturn(Optional.of(testHotel));
 
-        // Act
+
         Hotel result = hotelService.findById(HOTEL_ID);
 
-        // Assert
+
         assertNotNull(result);
         assertEquals(HOTEL_ID, result.getId());
         assertEquals("Test Hotel", result.getName());
@@ -142,11 +142,11 @@ class HotelServiceTest {
      */
     @Test
     void findById_WithNonExistingId_ShouldThrowException() {
-        // Arrange
+
         Long nonExistingId = 999L;
         when(hotelRepository.findById(nonExistingId)).thenReturn(Optional.empty());
 
-        // Act & Assert
+
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> hotelService.findById(nonExistingId));
 
@@ -169,7 +169,7 @@ class HotelServiceTest {
      */
     @Test
     void save_WithValidHotel_ShouldReturnSavedHotel() {
-        // Arrange
+
         Hotel newHotel = new Hotel();
         newHotel.setName("New Hotel");
         newHotel.setAddress("456 New Street");
@@ -177,10 +177,10 @@ class HotelServiceTest {
 
         when(hotelRepository.save(newHotel)).thenReturn(newHotel);
 
-        // Act
+
         Hotel result = hotelService.save(newHotel);
 
-        // Assert
+
         assertNotNull(result);
         assertEquals("New Hotel", result.getName());
         assertEquals("456 New Street", result.getAddress());
@@ -202,18 +202,15 @@ class HotelServiceTest {
      */
     @Test
     void save_WithMinimalData_ShouldReturnSavedHotel() {
-        // Arrange
+
         Hotel minimalHotel = new Hotel();
         minimalHotel.setName("Minimal Hotel");
         minimalHotel.setAddress("Minimal Address");
-        // description is null
 
         when(hotelRepository.save(minimalHotel)).thenReturn(minimalHotel);
 
-        // Act
         Hotel result = hotelService.save(minimalHotel);
 
-        // Assert
         assertNotNull(result);
         assertEquals("Minimal Hotel", result.getName());
         assertEquals("Minimal Address", result.getAddress());
@@ -252,10 +249,8 @@ class HotelServiceTest {
         when(hotelRepository.findById(HOTEL_ID)).thenReturn(Optional.of(existingHotel));
         when(hotelRepository.save(existingHotel)).thenReturn(existingHotel);
 
-        // Act
         Hotel result = hotelService.update(HOTEL_ID, updateDetails);
 
-        // Assert
         assertNotNull(result);
         assertEquals(HOTEL_ID, result.getId());
         assertEquals("Updated Name", result.getName());
@@ -280,7 +275,7 @@ class HotelServiceTest {
      */
     @Test
     void update_WithPartialData_ShouldUpdateAllFieldsIncludingNulls() {
-        // Arrange
+
         Hotel existingHotel = new Hotel();
         existingHotel.setId(HOTEL_ID);
         existingHotel.setName("Original Name");
@@ -289,18 +284,15 @@ class HotelServiceTest {
 
         Hotel updateDetails = new Hotel();
         updateDetails.setName("New Name Only");
-        // address and description are null - они будут установлены в null
 
         when(hotelRepository.findById(HOTEL_ID)).thenReturn(Optional.of(existingHotel));
         when(hotelRepository.save(existingHotel)).thenReturn(existingHotel);
 
-        // Act
         Hotel result = hotelService.update(HOTEL_ID, updateDetails);
 
-        // Assert
         assertNotNull(result);
         assertEquals("New Name Only", result.getName());
-        // Поскольку сервис устанавливает все поля из updateDetails, включая null
+
         assertNull(result.getAddress());
         assertNull(result.getDescription());
 
@@ -322,14 +314,14 @@ class HotelServiceTest {
      */
     @Test
     void update_WithNonExistingHotel_ShouldThrowException() {
-        // Arrange
+
         Long nonExistingId = 999L;
         Hotel updateDetails = new Hotel();
         updateDetails.setName("Updated Name");
 
         when(hotelRepository.findById(nonExistingId)).thenReturn(Optional.empty());
 
-        // Act & Assert
+
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> hotelService.update(nonExistingId, updateDetails));
 
@@ -353,13 +345,11 @@ class HotelServiceTest {
      */
     @Test
     void deleteById_WithExistingId_ShouldDeleteHotel() {
-        // Arrange
+
         doNothing().when(hotelRepository).deleteById(HOTEL_ID);
 
-        // Act
         hotelService.deleteById(HOTEL_ID);
 
-        // Assert
         verify(hotelRepository).deleteById(HOTEL_ID);
     }
 
@@ -377,11 +367,10 @@ class HotelServiceTest {
      */
     @Test
     void deleteById_WithNonExistingId_ShouldCompleteWithoutError() {
-        // Arrange
+
         Long nonExistingId = 999L;
         doNothing().when(hotelRepository).deleteById(nonExistingId);
 
-        // Act & Assert
         assertDoesNotThrow(() -> hotelService.deleteById(nonExistingId));
 
         verify(hotelRepository).deleteById(nonExistingId);
@@ -401,11 +390,10 @@ class HotelServiceTest {
      */
     @Test
     void deleteById_WithNullId_ShouldCallRepository() {
-        // Arrange
+
         Long nullId = 0L;
         doNothing().when(hotelRepository).deleteById(nullId);
 
-        // Act & Assert
         assertDoesNotThrow(() -> hotelService.deleteById(nullId));
 
         verify(hotelRepository).deleteById(nullId);

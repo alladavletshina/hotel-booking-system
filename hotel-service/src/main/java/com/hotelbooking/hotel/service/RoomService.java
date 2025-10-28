@@ -29,14 +29,12 @@ public class RoomService {
     public boolean isRoomAvailable(Long roomId, LocalDate startDate, LocalDate endDate) {
         validateDates(startDate, endDate);
 
-        // Базовая проверка доступности номера
         Optional<Room> roomOpt = roomRepository.findById(roomId);
         if (roomOpt.isEmpty() || !roomOpt.get().getAvailable()) {
             log.debug("Room {} is not available", roomId);
             return false;
         }
 
-        // Проверка конфликтов по датам
         boolean hasConflict = bookingSlotRepository.hasDateConflict(roomId, startDate, endDate);
 
         log.debug("Room {} availability check: {} (has conflict: {})",
@@ -54,14 +52,12 @@ public class RoomService {
             log.info("Confirming availability for room {} from {} to {} (booking: {})",
                     roomId, startDate, endDate, bookingId);
 
-            // Проверка базовой доступности
             Optional<Room> roomOpt = roomRepository.findById(roomId);
             if (roomOpt.isEmpty() || !roomOpt.get().getAvailable()) {
                 log.warn("Room {} is not available", roomId);
                 return false;
             }
 
-            // Проверка конфликтов по датам
             if (bookingSlotRepository.hasDateConflict(roomId, startDate, endDate)) {
                 List<BookingSlot> conflicts = bookingSlotRepository.findConflictingSlots(roomId, startDate, endDate);
                 log.warn("Room {} has date conflict for period {} - {}. Conflicts: {}",
@@ -69,7 +65,6 @@ public class RoomService {
                 return false;
             }
 
-            // Создание временной блокировки
             BookingSlot tempSlot = new BookingSlot();
             tempSlot.setRoomId(roomId);
             tempSlot.setStartDate(startDate);
@@ -79,7 +74,6 @@ public class RoomService {
 
             bookingSlotRepository.save(tempSlot);
 
-            // Увеличиваем счетчик бронирований
             Room room = roomOpt.get();
             room.setTimesBooked(room.getTimesBooked() != null ? room.getTimesBooked() + 1 : 1);
             roomRepository.save(room);
@@ -102,7 +96,6 @@ public class RoomService {
         try {
             log.info("Releasing room {} for booking {}", roomId, bookingId);
 
-            // Удаляем временные слоты для этого бронирования
             List<BookingSlot> slots = bookingSlotRepository.findByBookingId(bookingId);
             int releasedCount = 0;
 
@@ -181,7 +174,6 @@ public class RoomService {
 
         List<Room> allAvailableRooms = roomRepository.findByAvailableTrue();
 
-        // Фильтруем номера без конфликтов по датам
         return allAvailableRooms.stream()
                 .filter(room -> !bookingSlotRepository.hasDateConflict(room.getId(), startDate, endDate))
                 .toList();
@@ -195,7 +187,6 @@ public class RoomService {
 
         List<Room> availableRooms = findAvailableRooms(startDate, endDate);
 
-        // Сортируем по количеству бронирований (наименее популярные сначала)
         return availableRooms.stream()
                 .sorted((r1, r2) -> {
                     int booked1 = r1.getTimesBooked() != null ? r1.getTimesBooked() : 0;
@@ -208,7 +199,7 @@ public class RoomService {
     /**
      * Очистка устаревших временных бронирований (выполняется по расписанию)
      */
-    @Scheduled(fixedRate = 300000) // Каждые 5 минут
+    @Scheduled(fixedRate = 300000)
     @Transactional
     public void cleanupExpiredReservations() {
         try {
@@ -253,7 +244,6 @@ public class RoomService {
 
         log.info("Finding best available room for dates {} to {}", startDate, endDate);
 
-        // Получаем рекомендованные номера на даты (уже отсортированы по популярности)
         List<Room> recommendedRooms = findRecommendedRooms(startDate, endDate);
 
         if (recommendedRooms.isEmpty()) {
@@ -261,7 +251,6 @@ public class RoomService {
             throw new RuntimeException("No available rooms found for selected dates");
         }
 
-        // Берем первую (наименее популярную) комнату из рекомендованных
         Room bestRoom = recommendedRooms.get(0);
         log.info("Auto-selected room {} (type: {}, price: {})",
                 bestRoom.getId(), bestRoom.getType(), bestRoom.getPrice());
@@ -293,7 +282,6 @@ public class RoomService {
     @Transactional
     public void releaseRoom(Long roomId) {
         log.warn("Using deprecated releaseRoom method without bookingId");
-        // Этот метод теперь менее полезен, но оставляем для обратной совместимости
     }
 
     public List<Room> findAvailableRooms() {

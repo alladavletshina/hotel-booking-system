@@ -24,7 +24,7 @@ public class User {
     private String lastName;
 
     @Column(nullable = false)
-    private String role = "USER"; // По умолчанию USER
+    private String role = "USER";
 
     @Column(nullable = false)
     private Boolean enabled = true;

@@ -43,7 +43,6 @@ public class InternalAuthService {
         log.info("Using auth URL: {}", authServiceUrl);
         log.info("Internal username: {}", internalUsername);
 
-        // Принудительно получаем токен при старте с задержкой
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.schedule(() -> {
             try {
@@ -60,15 +59,13 @@ public class InternalAuthService {
                     }
                 } else {
                     log.error("❌ Failed to get valid internal token - service will not be able to make internal calls");
-                    // ❌ УБРАН FALLBACK - оставляем токен null
                 }
             } catch (Exception e) {
                 log.error("❌ Critical error during internal auth init: {}", e.getMessage());
-                // ❌ УБРАН FALLBACK - не создаем токен при ошибке
+
             }
         }, 10, TimeUnit.SECONDS);
 
-        // Периодическое обновление токена каждые 30 минут
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 if (initialized && isTokenExpiringSoon()) {
@@ -89,7 +86,6 @@ public class InternalAuthService {
             String loginUrl = authServiceUrl + "/login";
             log.debug("Making login request to: {}", loginUrl);
 
-            // Создаем запрос для логина
             String loginRequest = String.format(
                     "{\"username\":\"%s\",\"password\":\"%s\"}",
                     internalUsername, internalPassword
@@ -110,29 +106,29 @@ public class InternalAuthService {
             log.debug("Login response body: {}", response.getBody());
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                // Парсим токен из ответа
+
                 String responseBody = response.getBody();
                 if (responseBody.contains("\"token\"")) {
                     internalToken = extractTokenFromResponse(responseBody);
-                    // Устанавливаем время expiry (предполагаем 24 часа)
+
                     tokenExpiryTime = System.currentTimeMillis() + 86400000;
                     initialized = true;
                     log.info("✅ Successfully obtained internal service token via API Gateway");
                     log.debug("Full token: {}", internalToken);
                 } else {
-                    // ❌ УБРАН FALLBACK - выбрасываем исключение
+
                     log.error("Token not found in auth response: {}", responseBody);
                     throw new RuntimeException("Token not found in authentication response");
                 }
             } else {
-                // ❌ УБРАН FALLBACK - выбрасываем исключение
+
                 log.error("Failed to get internal token. Status: {}, Response: {}",
                         response.getStatusCode(), response.getBody());
                 throw new RuntimeException("Authentication service returned status: " + response.getStatusCode());
             }
 
         } catch (Exception e) {
-            // ❌ УБРАН FALLBACK - пробрасываем исключение дальше
+
             log.error("Critical error refreshing internal token: {}", e.getMessage());
             initialized = false;
             throw new RuntimeException("Failed to refresh internal service token", e);
@@ -146,7 +142,7 @@ public class InternalAuthService {
         try {
             log.debug("Parsing token from response: {}", jsonResponse);
 
-            // Пробуем несколько способов извлечения токена
+
             String[] tokenKeys = {"\"token\":\"", "\"access_token\":\"", "token\":\""};
 
             for (String tokenKey : tokenKeys) {
@@ -180,7 +176,6 @@ public class InternalAuthService {
             refreshInternalToken();
         }
 
-        // Если токен отсутствует или скоро истечет - обновляем
         if (internalToken == null || isTokenExpiringSoon()) {
             log.info("Token missing or expiring soon, refreshing...");
             refreshInternalToken();
@@ -204,13 +199,6 @@ public class InternalAuthService {
     }
 
     /**
-     * Проверяет, инициализирован ли сервис
-     */
-    public boolean isInitialized() {
-        return initialized;
-    }
-
-    /**
      * Проверяет, истек ли срок действия токена
      */
     private boolean isTokenExpired() {
@@ -224,50 +212,4 @@ public class InternalAuthService {
         return tokenExpiryTime - System.currentTimeMillis() < 300000; // 5 минут
     }
 
-    /**
-     * Создает заголовки с internal аутентификацией
-     */
-    public HttpHeaders createInternalAuthHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        try {
-            String token = getInternalToken();
-            headers.setBearerAuth(token);
-            log.debug("Added Bearer token to headers");
-        } catch (Exception e) {
-            log.error("Cannot create auth headers - internal token not available: {}", e.getMessage());
-            throw new RuntimeException("Internal service authentication unavailable", e);
-        }
-
-        // Добавляем заголовок для идентификации internal вызовов
-        headers.set("X-Internal-Call", "true");
-        headers.set("X-Service-Name", "booking-service");
-
-        return headers;
-    }
-
-    /**
-     * Принудительно обновляет токен
-     */
-    public void forceRefreshToken() {
-        log.info("🔄 Forcing internal token refresh...");
-        refreshInternalToken();
-    }
-
-    /**
-     * Возвращает информацию о текущем токене (для отладки)
-     */
-    public String getTokenInfo() {
-        if (!initialized || internalToken == null) {
-            return "Service not initialized - token unavailable";
-        }
-
-        long timeUntilExpiry = tokenExpiryTime - System.currentTimeMillis();
-        long minutesUntilExpiry = timeUntilExpiry / 60000;
-
-        return String.format("Token: %s... (expires in %d minutes)",
-                internalToken.substring(0, Math.min(30, internalToken.length())),
-                minutesUntilExpiry);
-    }
 }

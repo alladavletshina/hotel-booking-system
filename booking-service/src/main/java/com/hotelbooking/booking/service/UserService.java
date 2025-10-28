@@ -41,7 +41,6 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setActive(true);
 
-        // По умолчанию создаем обычного пользователя
         if (user.getRole() == null) {
             user.setRole("USER");
         }
@@ -53,7 +52,6 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Обновляем только разрешенные поля
         if (userDetails.getFirstName() != null) {
             user.setFirstName(userDetails.getFirstName());
         }

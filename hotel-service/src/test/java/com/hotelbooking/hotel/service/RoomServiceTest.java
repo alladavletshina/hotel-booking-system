@@ -12,8 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -74,14 +74,12 @@ class RoomServiceTest {
      */
     @Test
     void isRoomAvailable_WithAvailableRoomAndNoConflicts_ShouldReturnTrue() {
-        // Arrange
+
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(testRoom));
         when(bookingSlotRepository.hasDateConflict(ROOM_ID, START_DATE, END_DATE)).thenReturn(false);
 
-        // Act
         boolean result = roomService.isRoomAvailable(ROOM_ID, START_DATE, END_DATE);
 
-        // Assert
         assertTrue(result);
         verify(roomRepository).findById(ROOM_ID);
         verify(bookingSlotRepository).hasDateConflict(ROOM_ID, START_DATE, END_DATE);
@@ -100,13 +98,11 @@ class RoomServiceTest {
      */
     @Test
     void isRoomAvailable_WithNonExistingRoom_ShouldReturnFalse() {
-        // Arrange
+
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.empty());
 
-        // Act
         boolean result = roomService.isRoomAvailable(ROOM_ID, START_DATE, END_DATE);
 
-        // Assert
         assertFalse(result);
         verify(roomRepository).findById(ROOM_ID);
         verify(bookingSlotRepository, never()).hasDateConflict(anyLong(), any(), any());
@@ -126,14 +122,12 @@ class RoomServiceTest {
      */
     @Test
     void isRoomAvailable_WithUnavailableRoom_ShouldReturnFalse() {
-        // Arrange
+
         testRoom.setAvailable(false);
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(testRoom));
 
-        // Act
         boolean result = roomService.isRoomAvailable(ROOM_ID, START_DATE, END_DATE);
 
-        // Assert
         assertFalse(result);
         verify(roomRepository).findById(ROOM_ID);
         verify(bookingSlotRepository, never()).hasDateConflict(anyLong(), any(), any());
@@ -153,14 +147,12 @@ class RoomServiceTest {
      */
     @Test
     void isRoomAvailable_WithDateConflict_ShouldReturnFalse() {
-        // Arrange
+
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(testRoom));
         when(bookingSlotRepository.hasDateConflict(ROOM_ID, START_DATE, END_DATE)).thenReturn(true);
 
-        // Act
         boolean result = roomService.isRoomAvailable(ROOM_ID, START_DATE, END_DATE);
 
-        // Assert
         assertFalse(result);
         verify(roomRepository).findById(ROOM_ID);
         verify(bookingSlotRepository).hasDateConflict(ROOM_ID, START_DATE, END_DATE);
@@ -182,16 +174,14 @@ class RoomServiceTest {
      */
     @Test
     void confirmAvailability_WithAvailableRoom_ShouldReturnTrueAndCreateReservation() {
-        // Arrange
+
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(testRoom));
         when(bookingSlotRepository.hasDateConflict(ROOM_ID, START_DATE, END_DATE)).thenReturn(false);
         when(bookingSlotRepository.save(any(BookingSlot.class))).thenReturn(testBookingSlot);
         when(roomRepository.save(testRoom)).thenReturn(testRoom);
 
-        // Act
         boolean result = roomService.confirmAvailability(ROOM_ID, START_DATE, END_DATE, BOOKING_ID);
 
-        // Assert
         assertTrue(result);
         verify(roomRepository).findById(ROOM_ID);
         verify(bookingSlotRepository).hasDateConflict(ROOM_ID, START_DATE, END_DATE);
@@ -214,14 +204,12 @@ class RoomServiceTest {
      */
     @Test
     void confirmAvailability_WithUnavailableRoom_ShouldReturnFalse() {
-        // Arrange
+
         testRoom.setAvailable(false);
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(testRoom));
 
-        // Act
         boolean result = roomService.confirmAvailability(ROOM_ID, START_DATE, END_DATE, BOOKING_ID);
 
-        // Assert
         assertFalse(result);
         verify(roomRepository).findById(ROOM_ID);
         verify(bookingSlotRepository, never()).hasDateConflict(anyLong(), any(), any());
@@ -242,14 +230,12 @@ class RoomServiceTest {
      */
     @Test
     void confirmAvailability_WithDateConflict_ShouldReturnFalse() {
-        // Arrange
+
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(testRoom));
         when(bookingSlotRepository.hasDateConflict(ROOM_ID, START_DATE, END_DATE)).thenReturn(true);
 
-        // Act
         boolean result = roomService.confirmAvailability(ROOM_ID, START_DATE, END_DATE, BOOKING_ID);
 
-        // Assert
         assertFalse(result);
         verify(roomRepository).findById(ROOM_ID);
         verify(bookingSlotRepository).hasDateConflict(ROOM_ID, START_DATE, END_DATE);
@@ -270,13 +256,11 @@ class RoomServiceTest {
      */
     @Test
     void releaseRoom_WithReservedSlots_ShouldRemoveTemporarySlots() {
-        // Arrange
-        when(bookingSlotRepository.findByBookingId(BOOKING_ID)).thenReturn(Arrays.asList(testBookingSlot));
 
-        // Act
+        when(bookingSlotRepository.findByBookingId(BOOKING_ID)).thenReturn(Collections.singletonList(testBookingSlot));
+
         roomService.releaseRoom(ROOM_ID, BOOKING_ID);
 
-        // Assert
         verify(bookingSlotRepository).findByBookingId(BOOKING_ID);
         verify(bookingSlotRepository).delete(testBookingSlot);
     }
@@ -294,13 +278,11 @@ class RoomServiceTest {
      */
     @Test
     void releaseRoom_WithNoReservedSlots_ShouldCompleteWithoutAction() {
-        // Arrange
-        when(bookingSlotRepository.findByBookingId(BOOKING_ID)).thenReturn(Arrays.asList());
 
-        // Act
+        when(bookingSlotRepository.findByBookingId(BOOKING_ID)).thenReturn(List.of());
+
         roomService.releaseRoom(ROOM_ID, BOOKING_ID);
 
-        // Assert
         verify(bookingSlotRepository).findByBookingId(BOOKING_ID);
         verify(bookingSlotRepository, never()).delete(any(BookingSlot.class));
     }
@@ -319,14 +301,12 @@ class RoomServiceTest {
      */
     @Test
     void confirmBooking_WithReservedSlots_ShouldConfirmSlots() {
-        // Arrange
-        when(bookingSlotRepository.findByBookingId(BOOKING_ID)).thenReturn(Arrays.asList(testBookingSlot));
+
+        when(bookingSlotRepository.findByBookingId(BOOKING_ID)).thenReturn(Collections.singletonList(testBookingSlot));
         when(bookingSlotRepository.save(testBookingSlot)).thenReturn(testBookingSlot);
 
-        // Act
         roomService.confirmBooking(ROOM_ID, BOOKING_ID);
 
-        // Assert
         verify(bookingSlotRepository).findByBookingId(BOOKING_ID);
         verify(bookingSlotRepository).save(testBookingSlot);
         assertEquals("CONFIRMED", testBookingSlot.getStatus());
@@ -346,7 +326,7 @@ class RoomServiceTest {
      */
     @Test
     void cancelBooking_WithBookingSlots_ShouldCancelAllSlots() {
-        // Arrange
+
         BookingSlot slot1 = new BookingSlot();
         slot1.setStatus("RESERVED");
         BookingSlot slot2 = new BookingSlot();
@@ -355,10 +335,8 @@ class RoomServiceTest {
         when(bookingSlotRepository.findByBookingId(BOOKING_ID)).thenReturn(Arrays.asList(slot1, slot2));
         when(bookingSlotRepository.save(any(BookingSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         roomService.cancelBooking(ROOM_ID, BOOKING_ID);
 
-        // Assert
         verify(bookingSlotRepository).findByBookingId(BOOKING_ID);
         verify(bookingSlotRepository, times(2)).save(any(BookingSlot.class));
         assertEquals("CANCELLED", slot1.getStatus());
@@ -379,7 +357,7 @@ class RoomServiceTest {
      */
     @Test
     void findAvailableRooms_WithAvailableRooms_ShouldReturnFilteredList() {
-        // Arrange
+
         Room room1 = new Room();
         room1.setId(1L);
         room1.setAvailable(true);
@@ -394,10 +372,8 @@ class RoomServiceTest {
         when(bookingSlotRepository.hasDateConflict(1L, START_DATE, END_DATE)).thenReturn(false);
         when(bookingSlotRepository.hasDateConflict(2L, START_DATE, END_DATE)).thenReturn(true);
 
-        // Act
         List<Room> result = roomService.findAvailableRooms(START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(1L, result.get(0).getId());
@@ -419,7 +395,7 @@ class RoomServiceTest {
      */
     @Test
     void findRecommendedRooms_WithAvailableRooms_ShouldReturnSortedList() {
-        // Arrange
+
         Room room1 = new Room();
         room1.setId(1L);
         room1.setTimesBooked(10);
@@ -437,10 +413,8 @@ class RoomServiceTest {
         when(roomRepository.findByAvailableTrue()).thenReturn(availableRooms);
         when(bookingSlotRepository.hasDateConflict(anyLong(), any(), any())).thenReturn(false);
 
-        // Act
         List<Room> result = roomService.findRecommendedRooms(START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertEquals(3, result.size());
         assertEquals(2L, result.get(0).getId()); // Least booked (5)
@@ -462,7 +436,7 @@ class RoomServiceTest {
      */
     @Test
     void findBestAvailableRoom_WithAvailableRooms_ShouldReturnLeastPopularRoom() {
-        // Arrange
+
         Room leastPopular = new Room();
         leastPopular.setId(1L);
         leastPopular.setTimesBooked(2);
@@ -476,10 +450,8 @@ class RoomServiceTest {
         when(roomRepository.findByAvailableTrue()).thenReturn(recommendedRooms);
         when(bookingSlotRepository.hasDateConflict(anyLong(), any(), any())).thenReturn(false);
 
-        // Act
         Room result = roomService.findBestAvailableRoom(START_DATE, END_DATE);
 
-        // Assert
         assertNotNull(result);
         assertEquals(1L, result.getId());
         assertEquals(2, result.getTimesBooked());
@@ -498,10 +470,9 @@ class RoomServiceTest {
      */
     @Test
     void findBestAvailableRoom_WithNoAvailableRooms_ShouldThrowException() {
-        // Arrange
-        when(roomRepository.findByAvailableTrue()).thenReturn(Arrays.asList());
 
-        // Act & Assert
+        when(roomRepository.findByAvailableTrue()).thenReturn(List.of());
+
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> roomService.findBestAvailableRoom(START_DATE, END_DATE));
 
@@ -522,7 +493,7 @@ class RoomServiceTest {
      */
     @Test
     void findTopAvailableRooms_WithLimit_ShouldReturnLimitedList() {
-        // Arrange
+
         Room room1 = new Room(); room1.setId(1L); room1.setTimesBooked(1);
         Room room2 = new Room(); room2.setId(2L); room2.setTimesBooked(2);
         Room room3 = new Room(); room3.setId(3L); room3.setTimesBooked(3);
@@ -534,10 +505,8 @@ class RoomServiceTest {
         when(roomRepository.findByAvailableTrue()).thenReturn(allRooms);
         when(bookingSlotRepository.hasDateConflict(anyLong(), any(), any())).thenReturn(false);
 
-        // Act
         List<Room> result = roomService.findTopAvailableRooms(START_DATE, END_DATE, limit);
 
-        // Assert
         assertNotNull(result);
         assertEquals(limit, result.size());
         assertEquals(1L, result.get(0).getId());
@@ -557,11 +526,10 @@ class RoomServiceTest {
      */
     @Test
     void validateDates_WithStartDateInPast_ShouldThrowException() {
-        // Arrange
+
         LocalDate pastDate = LocalDate.now().minusDays(1);
         LocalDate futureDate = LocalDate.now().plusDays(2);
 
-        // Act & Assert
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> roomService.findAvailableRooms(pastDate, futureDate));
 
@@ -581,13 +549,11 @@ class RoomServiceTest {
      */
     @Test
     void findById_WithExistingId_ShouldReturnRoom() {
-        // Arrange
+
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(testRoom));
 
-        // Act
         Room result = roomService.findById(ROOM_ID);
 
-        // Assert
         assertNotNull(result);
         assertEquals(ROOM_ID, result.getId());
         assertEquals("DELUXE", result.getType());
@@ -607,11 +573,10 @@ class RoomServiceTest {
      */
     @Test
     void findById_WithNonExistingId_ShouldThrowException() {
-        // Arrange
+
         Long nonExistingId = 999L;
         when(roomRepository.findById(nonExistingId)).thenReturn(Optional.empty());
 
-        // Act & Assert
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> roomService.findById(nonExistingId));
 

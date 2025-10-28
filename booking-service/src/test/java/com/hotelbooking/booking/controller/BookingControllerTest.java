@@ -20,7 +20,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Collections;
 
@@ -88,16 +87,16 @@ class BookingControllerTest {
      */
     @Test
     void createBooking_WithValidRequest_ShouldReturnBookingDto() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         when(bookingMapper.toEntity(bookingRequest)).thenReturn(booking);
         when(bookingService.createBooking(any(Booking.class), any(String.class))).thenReturn(booking);
         when(bookingMapper.toDto(booking)).thenReturn(bookingDto);
 
-        // Act
+
         ResponseEntity<BookingDto> response = bookingController.createBooking(bookingRequest);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -123,7 +122,7 @@ class BookingControllerTest {
      */
     @Test
     void createBooking_WithCorrelationId_ShouldUseProvidedCorrelationId() {
-        // Arrange
+
         String correlationId = "test-correlation-id";
         bookingRequest.setCorrelationId(correlationId);
         setupUserAuthentication("ROLE_USER");
@@ -132,10 +131,10 @@ class BookingControllerTest {
         when(bookingService.createBooking(any(Booking.class), eq(correlationId))).thenReturn(booking);
         when(bookingMapper.toDto(booking)).thenReturn(bookingDto);
 
-        // Act
+
         ResponseEntity<BookingDto> response = bookingController.createBooking(bookingRequest);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(bookingService).createBooking(any(Booking.class), eq(correlationId));
@@ -159,25 +158,25 @@ class BookingControllerTest {
         // Arrange
         setupUserAuthentication("ROLE_USER");
 
-        // Настраиваем запрос с автоподбором
-        bookingRequest.setAutoSelect(true);
-        bookingRequest.setRoomId(null); // roomId не указан - будет автоподбор
 
-        // Настраиваем сущность с автоподбором
+        bookingRequest.setAutoSelect(true);
+        bookingRequest.setRoomId(null);
+
+
         Booking bookingWithAutoSelect = new Booking();
         bookingWithAutoSelect.setId(BOOKING_ID);
         bookingWithAutoSelect.setUserId(USER_ID);
-        bookingWithAutoSelect.setRoomId(789L); // Автоматически выбранная комната
+        bookingWithAutoSelect.setRoomId(789L);
         bookingWithAutoSelect.setStartDate(LocalDate.now().plusDays(1));
         bookingWithAutoSelect.setEndDate(LocalDate.now().plusDays(3));
         bookingWithAutoSelect.setAutoSelect(true);
         bookingWithAutoSelect.setStatus(BookingStatus.CONFIRMED);
 
-        // Настраиваем DTO с автоподобранной комнатой
+
         BookingDto bookingDtoWithAutoSelect = new BookingDto();
         bookingDtoWithAutoSelect.setId(BOOKING_ID);
         bookingDtoWithAutoSelect.setUserId(USER_ID);
-        bookingDtoWithAutoSelect.setRoomId(789L); // Автоматически выбранная комната
+        bookingDtoWithAutoSelect.setRoomId(789L);
         bookingDtoWithAutoSelect.setStartDate(LocalDate.now().plusDays(1));
         bookingDtoWithAutoSelect.setEndDate(LocalDate.now().plusDays(3));
         bookingDtoWithAutoSelect.setAutoSelect(true);
@@ -187,15 +186,15 @@ class BookingControllerTest {
         when(bookingService.createBooking(any(Booking.class), any(String.class))).thenReturn(bookingWithAutoSelect);
         when(bookingMapper.toDto(bookingWithAutoSelect)).thenReturn(bookingDtoWithAutoSelect);
 
-        // Act
+
         ResponseEntity<BookingDto> response = bookingController.createBooking(bookingRequest);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
 
-        // Проверяем, что бронирование создано с автоподобранной комнатой
+
         assertEquals(789L, response.getBody().getRoomId());
         assertTrue(response.getBody().getAutoSelect());
         assertEquals(BookingStatus.CONFIRMED, response.getBody().getStatus());
@@ -219,10 +218,10 @@ class BookingControllerTest {
      */
     @Test
     void createBooking_WithAutoSelectAndNoRooms_ShouldThrowException() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
 
-        // Настраиваем запрос с автоподбором
+
         bookingRequest.setAutoSelect(true);
         bookingRequest.setRoomId(null);
 
@@ -234,7 +233,7 @@ class BookingControllerTest {
         when(bookingService.createBooking(any(Booking.class), any(String.class)))
                 .thenThrow(new RuntimeException("No available rooms found for selected dates"));
 
-        // Act & Assert
+
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> bookingController.createBooking(bookingRequest));
 
@@ -260,18 +259,18 @@ class BookingControllerTest {
      */
     @Test
     void getUserBookings_WithValidUserId_ShouldReturnBookingsList() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        List<Booking> bookings = Arrays.asList(booking);
-        List<BookingDto> bookingDtos = Arrays.asList(bookingDto);
+        List<Booking> bookings = Collections.singletonList(booking);
+
 
         when(bookingService.getUserBookings(USER_ID)).thenReturn(bookings);
         when(bookingMapper.toDto(booking)).thenReturn(bookingDto);
 
-        // Act
+
         ResponseEntity<List<BookingDto>> response = bookingController.getUserBookings(USER_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -296,18 +295,17 @@ class BookingControllerTest {
      */
     @Test
     void getUserBookings_ByAdmin_ShouldReturnAnyUserBookings() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
-        List<Booking> bookings = Arrays.asList(booking);
-        List<BookingDto> bookingDtos = Arrays.asList(bookingDto);
+        List<Booking> bookings = Collections.singletonList(booking);
 
         when(bookingService.getUserBookings(USER_ID)).thenReturn(bookings);
         when(bookingMapper.toDto(booking)).thenReturn(bookingDto);
 
-        // Act
+
         ResponseEntity<List<BookingDto>> response = bookingController.getUserBookings(USER_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(bookingService).getUserBookings(USER_ID);
@@ -327,18 +325,17 @@ class BookingControllerTest {
      */
     @Test
     void getMyBookings_WithAuthenticatedUser_ShouldReturnUserBookings() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        List<Booking> bookings = Arrays.asList(booking);
-        List<BookingDto> bookingDtos = Arrays.asList(bookingDto);
+        List<Booking> bookings = Collections.singletonList(booking);
 
         when(bookingService.getCurrentUserBookings()).thenReturn(bookings);
         when(bookingMapper.toDto(booking)).thenReturn(bookingDto);
 
-        // Act
+
         ResponseEntity<List<BookingDto>> response = bookingController.getMyBookings();
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -362,19 +359,19 @@ class BookingControllerTest {
      */
     @Test
     void cancelBooking_WithValidId_ShouldReturnOk() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        // Создаем mock Booking для возврата из сервиса
+
         Booking cancelledBooking = new Booking();
         cancelledBooking.setId(BOOKING_ID);
         cancelledBooking.setStatus(BookingStatus.CANCELLED);
 
         when(bookingService.cancelBooking(BOOKING_ID)).thenReturn(cancelledBooking);
 
-        // Act
+
         ResponseEntity<Void> response = bookingController.cancelBooking(BOOKING_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNull(response.getBody());
@@ -396,19 +393,19 @@ class BookingControllerTest {
      */
     @Test
     void cancelBooking_ByAdmin_ShouldCancelAnyBooking() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
-        // Создаем mock Booking для возврата из сервиса
+
         Booking cancelledBooking = new Booking();
         cancelledBooking.setId(BOOKING_ID);
         cancelledBooking.setStatus(BookingStatus.CANCELLED);
 
         when(bookingService.cancelBooking(BOOKING_ID)).thenReturn(cancelledBooking);
 
-        // Act
+
         ResponseEntity<Void> response = bookingController.cancelBooking(BOOKING_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(bookingService).cancelBooking(BOOKING_ID);
@@ -428,18 +425,17 @@ class BookingControllerTest {
      */
     @Test
     void getAllBookings_ByAdmin_ShouldReturnAllBookings() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
-        List<Booking> bookings = Arrays.asList(booking);
-        List<BookingDto> bookingDtos = Arrays.asList(bookingDto);
+        List<Booking> bookings = Collections.singletonList(booking);
 
         when(bookingService.getAllBookings()).thenReturn(bookings);
         when(bookingMapper.toDto(booking)).thenReturn(bookingDto);
 
-        // Act
+
         ResponseEntity<List<BookingDto>> response = bookingController.getAllBookings();
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -463,7 +459,7 @@ class BookingControllerTest {
      */
     @Test
     void getRecommendedRooms_WithValidDates_ShouldReturnRecommendations() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         LocalDate startDate = LocalDate.now().plusDays(1);
         LocalDate endDate = LocalDate.now().plusDays(3);
@@ -474,15 +470,15 @@ class BookingControllerTest {
         recommendation.setPrice(200.0);
         recommendation.setTimesBooked(5);
 
-        List<RoomRecommendation> recommendations = Arrays.asList(recommendation);
+        List<RoomRecommendation> recommendations = List.of(recommendation);
 
         when(bookingService.getRecommendedRooms(startDate, endDate)).thenReturn(recommendations);
 
-        // Act
+
         ResponseEntity<List<RoomRecommendation>> response =
                 bookingController.getRecommendedRooms(startDate, endDate);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -505,18 +501,18 @@ class BookingControllerTest {
      */
     @Test
     void getRecommendedRooms_WithNoRecommendations_ShouldReturnEmptyList() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         LocalDate startDate = LocalDate.now().plusDays(1);
         LocalDate endDate = LocalDate.now().plusDays(3);
 
         when(bookingService.getRecommendedRooms(startDate, endDate)).thenReturn(Collections.emptyList());
 
-        // Act
+
         ResponseEntity<List<RoomRecommendation>> response =
                 bookingController.getRecommendedRooms(startDate, endDate);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -535,13 +531,13 @@ class BookingControllerTest {
      */
     @Test
     void createBooking_WhenServiceThrowsException_ShouldPropagateException() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         when(bookingMapper.toEntity(bookingRequest)).thenReturn(booking);
         when(bookingService.createBooking(any(Booking.class), any(String.class)))
                 .thenThrow(new RuntimeException("Service error"));
 
-        // Act & Assert
+
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> bookingController.createBooking(bookingRequest));
 

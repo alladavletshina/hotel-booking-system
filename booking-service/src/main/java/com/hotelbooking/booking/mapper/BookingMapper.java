@@ -27,7 +27,7 @@ public class BookingMapper {
         dto.setCreatedAt(booking.getCreatedAt());
         dto.setUpdatedAt(booking.getUpdatedAt());
         dto.setCorrelationId(booking.getCorrelationId());
-        dto.setAutoSelect(booking.getAutoSelect()); // НОВОЕ ПОЛЕ
+        dto.setAutoSelect(booking.getAutoSelect());
 
         return dto;
     }
@@ -37,7 +37,6 @@ public class BookingMapper {
             return null;
         }
 
-        // Получаем информацию о пользователе из JWT токена
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof Jwt)) {
             throw new RuntimeException("User not authenticated");
@@ -62,7 +61,7 @@ public class BookingMapper {
 
     private Long extractUserIdFromJwt(Jwt jwt) {
         try {
-            // Пробуем получить userId как Long
+
             Object userIdClaim = jwt.getClaim("userId");
             if (userIdClaim instanceof Long) {
                 return (Long) userIdClaim;
@@ -72,14 +71,14 @@ public class BookingMapper {
                 return Long.parseLong((String) userIdClaim);
             }
         } catch (Exception e) {
-            // Если userId нет в токене или не может быть преобразован
+
             return null;
         }
         return null;
     }
 
     private Long generateUserIdFromUsername(String username) {
-        // Генерируем детерминированный ID из username для демонстрации
+
         return (long) Math.abs(username.hashCode());
     }
 }

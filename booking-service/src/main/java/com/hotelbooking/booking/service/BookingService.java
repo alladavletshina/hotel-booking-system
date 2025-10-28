@@ -35,17 +35,14 @@ public class BookingService {
         log.info("Creating booking with correlationId: {}, autoSelect: {}",
                 correlationId, booking.getAutoSelect());
 
-        // Проверяем идемпотентность
         if (correlationId != null && bookingRepository.existsByCorrelationId(correlationId)) {
             log.info("Duplicate booking request with correlationId: {}", correlationId);
             return bookingRepository.findByCorrelationId(correlationId)
                     .orElseThrow(() -> new RuntimeException("Duplicate booking request"));
         }
 
-        // Проверяем даты
         validateBookingDates(booking);
 
-        // АВТОПОДБОР КОМНАТЫ - НОВАЯ ФУНКЦИОНАЛЬНОСТЬ
         if (booking.getAutoSelect() != null && booking.getAutoSelect()) {
             log.info("Auto-selecting best available room for dates {} to {}",
                     booking.getStartDate(), booking.getEndDate());
@@ -54,45 +51,39 @@ public class BookingService {
             log.info("Auto-selected room ID: {}", selectedRoomId);
         }
 
-        // Проверяем, что комната указана
         if (booking.getRoomId() == null) {
             throw new RuntimeException("Room ID is required when autoSelect is false");
         }
 
-        // Устанавливаем начальные значения
         booking.setCorrelationId(correlationId != null ? correlationId : UUID.randomUUID().toString());
         booking.setStatus(BookingStatus.PENDING);
         booking.setCreatedAt(LocalDateTime.now());
 
-        // Сохраняем бронирование в статусе PENDING
         Booking savedBooking = bookingRepository.save(booking);
         log.info("Booking created with PENDING status: ID {}, Room {}, User {}, AutoSelect: {}",
                 savedBooking.getId(), savedBooking.getRoomId(), savedBooking.getUserId(),
                 savedBooking.getAutoSelect());
 
         try {
-            // Проверяем, что internal аутентификация настроена
+
             if (!internalAuthService.isTokenValid()) {
                 log.error("Internal authentication not available");
                 handleBookingFailure(savedBooking, "Internal service authentication failed");
                 throw new RuntimeException("Service temporarily unavailable");
             }
 
-            // Шаг 1: Подтверждаем доступность номера через Hotel Service
             log.info("Confirming availability for room {} via Hotel Service", savedBooking.getRoomId());
 
-            // СОЗДАЕМ AvailabilityRequest С ДАТАМИ
             AvailabilityRequest availabilityRequest = new AvailabilityRequest();
             availabilityRequest.setStartDate(savedBooking.getStartDate());
             availabilityRequest.setEndDate(savedBooking.getEndDate());
             availabilityRequest.setBookingId(savedBooking.getId());
 
-            // ОБНОВЛЕННЫЙ ВЫЗОВ С DTO
             Boolean isAvailable = hotelServiceClient.confirmAvailability(
                     savedBooking.getRoomId(), availabilityRequest);
 
             if (Boolean.TRUE.equals(isAvailable)) {
-                // Шаг 2: Если доступно - подтверждаем бронирование
+
                 savedBooking.setStatus(BookingStatus.CONFIRMED);
                 savedBooking.setUpdatedAt(LocalDateTime.now());
 
@@ -100,14 +91,14 @@ public class BookingService {
                 log.info("Booking CONFIRMED: ID {}", confirmedBooking.getId());
                 return confirmedBooking;
             } else {
-                // Шаг 3: Если недоступно - отменяем бронирование
+
                 log.warn("Room {} not available, cancelling booking {}", savedBooking.getRoomId(), savedBooking.getId());
                 handleBookingFailure(savedBooking, "Room not available");
                 throw new RuntimeException("Room is not available for selected dates");
             }
 
         } catch (Exception e) {
-            // Шаг 4: При любой ошибке - компенсирующее действие
+
             log.error("Error during booking confirmation for booking {}: {}", savedBooking.getId(), e.getMessage());
             handleBookingFailure(savedBooking, "Error during booking confirmation: " + e.getMessage());
             throw new RuntimeException("Booking failed: " + e.getMessage());
@@ -121,7 +112,6 @@ public class BookingService {
         try {
             log.info("Starting auto-selection for dates: {} to {}", startDate, endDate);
 
-            // Получаем рекомендованные комнаты от Hotel Service
             List<RoomRecommendation> recommendedRooms = hotelServiceClient
                     .getRecommendedRooms(startDate, endDate);
 
@@ -130,7 +120,6 @@ public class BookingService {
                 throw new RuntimeException("No available rooms found for selected dates");
             }
 
-            // Берем первую (наименее популярную) комнату из рекомендованных
             RoomRecommendation bestRoom = recommendedRooms.get(0);
             log.info("Auto-selected room: ID {}, Type {}, Price {}, Times Booked: {}",
                     bestRoom.getId(), bestRoom.getType(), bestRoom.getPrice(),
@@ -203,22 +192,20 @@ public class BookingService {
 
     private void handleBookingFailure(Booking booking, String reason) {
         try {
-            // Освобождаем номер в Hotel Service (компенсирующее действие)
+
             if (booking.getRoomId() != null) {
                 log.info("Releasing room {} due to booking failure", booking.getRoomId());
                 try {
-                    // СОЗДАЕМ ReleaseRequest
+
                     ReleaseRequest releaseRequest = new ReleaseRequest();
                     releaseRequest.setBookingId(booking.getId());
 
-                    // ОБНОВЛЕННЫЙ ВЫЗОВ С DTO
                     hotelServiceClient.releaseRoom(booking.getRoomId(), releaseRequest);
                 } catch (Exception e) {
                     log.error("Error releasing room {}: {}", booking.getRoomId(), e.getMessage());
                 }
             }
 
-            // Обновляем статус бронирования
             booking.setStatus(BookingStatus.CANCELLED);
             booking.setUpdatedAt(LocalDateTime.now());
             bookingRepository.save(booking);
@@ -236,7 +223,6 @@ public class BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + bookingId));
 
-        // Проверяем права доступа
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof Jwt) {
             Jwt jwt = (Jwt) authentication.getPrincipal();
@@ -255,15 +241,15 @@ public class BookingService {
             throw new RuntimeException("Cannot cancel booking with status: " + booking.getStatus());
         }
 
-        // Освобождаем номер в Hotel Service
+
         if (booking.getRoomId() != null) {
             log.info("Releasing room {} due to booking cancellation", booking.getRoomId());
             try {
-                // СОЗДАЕМ ReleaseRequest
+
                 ReleaseRequest releaseRequest = new ReleaseRequest();
                 releaseRequest.setBookingId(bookingId);
 
-                // ОБНОВЛЕННЫЙ ВЫЗОВ С DTO
+
                 hotelServiceClient.releaseRoom(booking.getRoomId(), releaseRequest);
             } catch (Exception e) {
                 log.error("Error releasing room {}: {}", booking.getRoomId(), e.getMessage());
@@ -279,7 +265,6 @@ public class BookingService {
         return cancelledBooking;
     }
 
-    // Остальные методы остаются без изменений
 
     public List<Booking> getUserBookings(Long userId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -317,7 +302,7 @@ public class BookingService {
 
     private Long extractUserIdFromJwt(Jwt jwt) {
         try {
-            // Сначала пробуем получить userId из claims
+
             Object userIdClaim = jwt.getClaim("userId");
             if (userIdClaim != null) {
                 if (userIdClaim instanceof Long) {
@@ -329,7 +314,7 @@ public class BookingService {
                 }
             }
 
-            // Если userId не найден, используем username для генерации стабильного ID
+
             String username = jwt.getSubject();
             if (username != null) {
                 return generateUserIdFromUsername(username);
@@ -345,7 +330,7 @@ public class BookingService {
     }
 
     private Long generateUserIdFromUsername(String username) {
-        // Генерируем стабильный числовой ID из username
+
         return (long) Math.abs(username.hashCode());
     }
 

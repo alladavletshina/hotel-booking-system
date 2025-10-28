@@ -10,5 +10,5 @@ public class BookingRequest {
     private LocalDate startDate;
     private LocalDate endDate;
     private String correlationId;
-    private Boolean autoSelect = false; // НОВОЕ ПОЛЕ
+    private Boolean autoSelect = false;
 }

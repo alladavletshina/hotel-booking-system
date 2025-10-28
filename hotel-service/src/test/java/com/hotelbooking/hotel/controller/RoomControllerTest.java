@@ -18,7 +18,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -54,7 +53,7 @@ class RoomControllerTest {
         testHotel.setName("Test Hotel");
         testHotel.setAddress("Test Address");
 
-        // Создаем тестовый номер в соответствии с структурой entity
+
         testRoom = new Room();
         testRoom.setId(ROOM_ID);
         testRoom.setNumber("101");
@@ -62,12 +61,12 @@ class RoomControllerTest {
         testRoom.setPrice(200.0);
         testRoom.setAvailable(true);
         testRoom.setTimesBooked(5);
-        testRoom.setHotel(testHotel); // Устанавливаем объект Hotel, а не hotelId
+        testRoom.setHotel(testHotel);
 
-        // Создаем тестовый DTO
+
         testRoomDto = new RoomDto();
         testRoomDto.setId(ROOM_ID);
-        testRoomDto.setHotelId(HOTEL_ID); // В DTO может быть прямой ID
+        testRoomDto.setHotelId(HOTEL_ID);
         testRoomDto.setNumber("101");
         testRoomDto.setType("DELUXE");
         testRoomDto.setPrice(200.0);
@@ -82,18 +81,18 @@ class RoomControllerTest {
      */
     @Test
     void getAvailableRooms_ShouldReturnRoomsList() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        List<Room> rooms = Arrays.asList(testRoom);
-        List<RoomDto> roomDtos = Arrays.asList(testRoomDto);
+        List<Room> rooms = Collections.singletonList(testRoom);
+
 
         when(roomService.findAvailableRooms()).thenReturn(rooms);
         when(roomMapper.toDto(testRoom)).thenReturn(testRoomDto);
 
-        // Act
+
         ResponseEntity<List<RoomDto>> response = roomController.getAvailableRooms();
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -111,15 +110,15 @@ class RoomControllerTest {
      */
     @Test
     void getRoom_WithExistingId_ShouldReturnRoom() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         when(roomService.findById(ROOM_ID)).thenReturn(testRoom);
         when(roomMapper.toDto(testRoom)).thenReturn(testRoomDto);
 
-        // Act
+
         ResponseEntity<RoomDto> response = roomController.getRoom(ROOM_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -136,18 +135,18 @@ class RoomControllerTest {
      */
     @Test
     void getRoomsByHotel_WithExistingHotel_ShouldReturnRoomsList() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        List<Room> rooms = Arrays.asList(testRoom);
-        List<RoomDto> roomDtos = Arrays.asList(testRoomDto);
+        List<Room> rooms = Collections.singletonList(testRoom);
+
 
         when(roomService.findRoomsByHotelId(HOTEL_ID)).thenReturn(rooms);
         when(roomMapper.toDto(testRoom)).thenReturn(testRoomDto);
 
-        // Act
+
         ResponseEntity<List<RoomDto>> response = roomController.getRoomsByHotel(HOTEL_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -165,14 +164,14 @@ class RoomControllerTest {
      */
     @Test
     void deleteRoom_WithAdminRole_ShouldDeleteRoom() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
         doNothing().when(roomService).deleteById(ROOM_ID);
 
-        // Act
+
         ResponseEntity<Void> response = roomController.deleteRoom(ROOM_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNull(response.getBody());
@@ -187,18 +186,18 @@ class RoomControllerTest {
      */
     @Test
     void getRecommendedRooms_ShouldReturnRecommendedRooms() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        List<Room> rooms = Arrays.asList(testRoom);
-        List<RoomDto> roomDtos = Arrays.asList(testRoomDto);
+        List<Room> rooms = Collections.singletonList(testRoom);
+
 
         when(roomService.findRecommendedRooms()).thenReturn(rooms);
         when(roomMapper.toDto(testRoom)).thenReturn(testRoomDto);
 
-        // Act
+
         ResponseEntity<List<RoomDto>> response = roomController.getRecommendedRooms();
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -215,16 +214,16 @@ class RoomControllerTest {
      */
     @Test
     void createRoom_WithAdminRole_ShouldCreateRoom() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
         when(roomMapper.toEntity(testRoomDto)).thenReturn(testRoom);
         when(roomService.save(testRoom)).thenReturn(testRoom);
         when(roomMapper.toDto(testRoom)).thenReturn(testRoomDto);
 
-        // Act
+
         ResponseEntity<RoomDto> response = roomController.createRoom(testRoomDto);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -242,14 +241,14 @@ class RoomControllerTest {
      */
     @Test
     void checkAvailability_WithAvailableRoom_ShouldReturnTrue() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         when(roomService.isRoomAvailable(ROOM_ID, START_DATE, END_DATE)).thenReturn(true);
 
-        // Act
+
         ResponseEntity<Boolean> response = roomController.checkAvailability(ROOM_ID, START_DATE, END_DATE);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -265,14 +264,14 @@ class RoomControllerTest {
      */
     @Test
     void checkAvailability_WithUnavailableRoom_ShouldReturnFalse() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         when(roomService.isRoomAvailable(ROOM_ID, START_DATE, END_DATE)).thenReturn(false);
 
-        // Act
+
         ResponseEntity<Boolean> response = roomController.checkAvailability(ROOM_ID, START_DATE, END_DATE);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -288,18 +287,17 @@ class RoomControllerTest {
      */
     @Test
     void getAvailableRoomsForDates_ShouldReturnAvailableRooms() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        List<Room> rooms = Arrays.asList(testRoom);
-        List<RoomDto> roomDtos = Arrays.asList(testRoomDto);
+        List<Room> rooms = Collections.singletonList(testRoom);
 
         when(roomService.findAvailableRooms(START_DATE, END_DATE)).thenReturn(rooms);
         when(roomMapper.toDto(testRoom)).thenReturn(testRoomDto);
 
-        // Act
+
         ResponseEntity<List<RoomDto>> response = roomController.getAvailableRoomsForDates(START_DATE, END_DATE);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -316,18 +314,17 @@ class RoomControllerTest {
      */
     @Test
     void getRecommendedRoomsForDates_ShouldReturnRecommendedRooms() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        List<Room> rooms = Arrays.asList(testRoom);
-        List<RoomDto> roomDtos = Arrays.asList(testRoomDto);
+        List<Room> rooms = Collections.singletonList(testRoom);
 
         when(roomService.findRecommendedRooms(START_DATE, END_DATE)).thenReturn(rooms);
         when(roomMapper.toDto(testRoom)).thenReturn(testRoomDto);
 
-        // Act
+
         ResponseEntity<List<RoomDto>> response = roomController.getRecommendedRoomsForDates(START_DATE, END_DATE);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -344,7 +341,7 @@ class RoomControllerTest {
      */
     @Test
     void confirmAvailabilityWithDates_WithAvailableRoom_ShouldReturnTrue() {
-        // Arrange
+
         setupUserAuthentication("ROLE_INTERNAL");
         Long bookingId = 100L;
         AvailabilityRequest request = new AvailabilityRequest();
@@ -354,10 +351,10 @@ class RoomControllerTest {
 
         when(roomService.confirmAvailability(ROOM_ID, START_DATE, END_DATE, bookingId)).thenReturn(true);
 
-        // Act
+
         ResponseEntity<Boolean> response = roomController.confirmAvailabilityWithDates(ROOM_ID, request);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -373,14 +370,14 @@ class RoomControllerTest {
      */
     @Test
     void confirmAvailability_ShouldCallService() {
-        // Arrange
+
         setupUserAuthentication("ROLE_INTERNAL");
         when(roomService.confirmAvailability(ROOM_ID)).thenReturn(true);
 
-        // Act
+
         ResponseEntity<Boolean> response = roomController.confirmAvailability(ROOM_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -395,7 +392,7 @@ class RoomControllerTest {
      */
     @Test
     void releaseRoomWithBooking_ShouldReleaseRoom() {
-        // Arrange
+
         setupUserAuthentication("ROLE_INTERNAL");
         Long bookingId = 100L;
         ReleaseRequest request = new ReleaseRequest();
@@ -403,10 +400,10 @@ class RoomControllerTest {
 
         doNothing().when(roomService).releaseRoom(ROOM_ID, bookingId);
 
-        // Act
+
         ResponseEntity<Void> response = roomController.releaseRoomWithBooking(ROOM_ID, request);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNull(response.getBody());
@@ -421,14 +418,14 @@ class RoomControllerTest {
      */
     @Test
     void releaseRoom_ShouldCallService() {
-        // Arrange
+
         setupUserAuthentication("ROLE_INTERNAL");
         doNothing().when(roomService).releaseRoom(ROOM_ID);
 
-        // Act
+
         ResponseEntity<Void> response = roomController.releaseRoom(ROOM_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNull(response.getBody());
@@ -443,7 +440,7 @@ class RoomControllerTest {
      */
     @Test
     void confirmBooking_ShouldConfirmBooking() {
-        // Arrange
+
         setupUserAuthentication("ROLE_INTERNAL");
         Long bookingId = 100L;
         BookingConfirmationRequest request = new BookingConfirmationRequest();
@@ -451,10 +448,10 @@ class RoomControllerTest {
 
         doNothing().when(roomService).confirmBooking(ROOM_ID, bookingId);
 
-        // Act
+
         ResponseEntity<Void> response = roomController.confirmBooking(ROOM_ID, request);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNull(response.getBody());
@@ -469,7 +466,7 @@ class RoomControllerTest {
      */
     @Test
     void cancelBooking_ShouldCancelBooking() {
-        // Arrange
+
         setupUserAuthentication("ROLE_INTERNAL");
         Long bookingId = 100L;
         BookingConfirmationRequest request = new BookingConfirmationRequest();
@@ -477,10 +474,10 @@ class RoomControllerTest {
 
         doNothing().when(roomService).cancelBooking(ROOM_ID, bookingId);
 
-        // Act
+
         ResponseEntity<Void> response = roomController.cancelBooking(ROOM_ID, request);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNull(response.getBody());
@@ -495,14 +492,14 @@ class RoomControllerTest {
      */
     @Test
     void getAvailableRooms_WithEmptyList_ShouldReturnEmptyList() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         when(roomService.findAvailableRooms()).thenReturn(Collections.emptyList());
 
-        // Act
+
         ResponseEntity<List<RoomDto>> response = roomController.getAvailableRooms();
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -519,23 +516,23 @@ class RoomControllerTest {
      */
     @Test
     void createRoom_WithMinimalData_ShouldCreateRoom() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
 
-        // Создаем минимальный DTO
+
         RoomDto minimalDto = new RoomDto();
         minimalDto.setHotelId(HOTEL_ID);
         minimalDto.setNumber("102");
         minimalDto.setType("STANDARD");
         minimalDto.setPrice(100.0);
 
-        // Создаем минимальную сущность Room (маппер должен создать объект Hotel)
+
         Room minimalRoom = new Room();
         minimalRoom.setNumber("102");
         minimalRoom.setType("STANDARD");
         minimalRoom.setPrice(100.0);
 
-        // Создаем сохраненную сущность
+
         Room savedRoom = new Room();
         savedRoom.setId(2L);
         savedRoom.setNumber("102");
@@ -554,10 +551,10 @@ class RoomControllerTest {
         when(roomService.save(minimalRoom)).thenReturn(savedRoom);
         when(roomMapper.toDto(savedRoom)).thenReturn(savedDto);
 
-        // Act
+
         ResponseEntity<RoomDto> response = roomController.createRoom(minimalDto);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());

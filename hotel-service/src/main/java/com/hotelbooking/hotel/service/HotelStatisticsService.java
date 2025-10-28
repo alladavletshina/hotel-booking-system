@@ -79,7 +79,6 @@ public class HotelStatisticsService {
                 .map(this::convertToRoomPopularity)
                 .collect(Collectors.toList());
 
-        // Устанавливаем рейтинг популярности
         for (int i = 0; i < popularRooms.size(); i++) {
             popularRooms.get(i).setPopularityRank(i + 1);
         }
@@ -87,10 +86,9 @@ public class HotelStatisticsService {
         return popularRooms;
     }
 
-    // Вспомогательные методы
     private List<BookingSlot> getBookingSlotsInPeriod(Long hotelId, LocalDate startDate, LocalDate endDate) {
         List<Room> hotelRooms = roomRepository.findByHotelId(hotelId);
-        List<Long> roomIds = hotelRooms.stream().map(Room::getId).collect(Collectors.toList());
+        List<Long> roomIds = hotelRooms.stream().map(Room::getId).toList();
 
         return roomIds.stream()
                 .flatMap(roomId -> bookingSlotRepository.findConflictingSlots(roomId, startDate, endDate).stream())
@@ -209,12 +207,12 @@ public class HotelStatisticsService {
     }
 
     private Double calculateRoomOccupancyRate(Room room) {
-        // Упрощенный расчет загрузки для отдельного номера
-        return room.getTimesBooked() * 2.5; // Пример: каждое бронирование = 2.5% загрузки
+
+        return room.getTimesBooked() * 2.5;
     }
 
     private Double calculateRoomTotalRevenue(Room room) {
-        // Упрощенный расчет дохода для номера
+
         return room.getPrice() != null ? room.getPrice() * room.getTimesBooked() * 2.5 : 0.0;
     }
 }

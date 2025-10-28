@@ -26,7 +26,6 @@ public class RoomMapper {
         dto.setPrice(room.getPrice());
         dto.setAvailable(room.getAvailable());
 
-        // Защита от null
         dto.setTimesBooked(room.getTimesBooked() != null ? room.getTimesBooked() : 0);
 
         if (room.getHotel() != null) {
@@ -48,10 +47,8 @@ public class RoomMapper {
         room.setPrice(roomDto.getPrice());
         room.setAvailable(roomDto.getAvailable());
 
-        // Защита от null
         room.setTimesBooked(roomDto.getTimesBooked() != null ? roomDto.getTimesBooked() : 0);
 
-        // ДОБАВЬТЕ ЭТУ ЛОГИКУ ДЛЯ УСТАНОВКИ HOTEL:
         if (roomDto.getHotelId() != null) {
             Hotel hotel = hotelRepository.findById(roomDto.getHotelId())
                     .orElseThrow(() -> new RuntimeException("Hotel not found with id: " + roomDto.getHotelId()));

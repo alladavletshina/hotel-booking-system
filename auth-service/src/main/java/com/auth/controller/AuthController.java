@@ -53,7 +53,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
-            // Проверяем, не существует ли пользователь
+
             if (authService.findByUsername(request.getUsername()).isPresent()) {
                 return ResponseEntity.badRequest().body("Username already exists");
             }
@@ -65,16 +65,14 @@ public class AuthController {
             user.setFirstName(request.getFirstName());
             user.setLastName(request.getLastName());
 
-            // Роль ADMIN можно установить только если явно указана
             if ("ADMIN".equals(request.getRole())) {
                 user.setRole("ADMIN");
             } else {
-                user.setRole("USER"); // По умолчанию
+                user.setRole("USER");
             }
 
             User savedUser = authService.saveUser(user);
 
-            // Генерируем токен для нового пользователя
             String token = jwtUtil.generateToken(savedUser.getUsername(), savedUser.getRole());
 
             AuthResponse response = new AuthResponse(
@@ -154,17 +152,14 @@ public class AuthController {
         System.out.println("Raw Authorization header: '" + authHeader + "'");
 
         try {
-            // Убираем возможные кавычки и лишние пробелы
             String cleanedHeader = authHeader != null ? authHeader.trim() : "";
 
-            // Убираем кавычки если они есть
             if (cleanedHeader.startsWith("\"") && cleanedHeader.endsWith("\"")) {
                 cleanedHeader = cleanedHeader.substring(1, cleanedHeader.length() - 1);
             }
 
             System.out.println("Cleaned header: '" + cleanedHeader + "'");
 
-            // Проверяем разные варианты Bearer
             if (cleanedHeader.startsWith("Bearer ") || cleanedHeader.startsWith("bearer ")) {
                 String token = cleanedHeader.substring(7).trim();
                 System.out.println("Extracted token: " + token);
@@ -182,10 +177,11 @@ public class AuthController {
             }
 
             System.out.println("Invalid header format after cleaning");
+            assert authHeader != null;
             return ResponseEntity.status(401).body(Map.of(
                     "error", "Invalid token",
                     "received_header", authHeader,
-                    "cleaned_header", cleanedHeader != null ? cleanedHeader : "null"
+                    "cleaned_header", cleanedHeader
             ));
 
         } catch (Exception e) {

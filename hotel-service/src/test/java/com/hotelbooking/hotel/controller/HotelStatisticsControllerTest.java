@@ -14,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.test.context.support.WithMockUser;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -92,16 +91,15 @@ class HotelStatisticsControllerTest {
     @WithMockUser(roles = "ADMIN")
     void getHotelsComparison_ShouldReturnComparisonList_WhenValidRequest() {
         // Arrange
-        List<HotelStatisticsDto> comparisonList = Arrays.asList(hotelStatisticsDto);
+        List<HotelStatisticsDto> comparisonList = Collections.singletonList(hotelStatisticsDto);
 
         when(hotelStatisticsService.getHotelsComparison(eq(startDate), eq(endDate)))
                 .thenReturn(comparisonList);
 
-        // Act
         ResponseEntity<List<HotelStatisticsDto>> response = hotelStatisticsController
                 .getHotelsComparison(startDate, endDate);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -119,18 +117,18 @@ class HotelStatisticsControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getDailyOccupancy_ShouldReturnDailyOccupancyMap_WhenValidRequest() {
-        // Arrange
+
         Map<LocalDate, Double> dailyOccupancy = new HashMap<>();
         dailyOccupancy.put(LocalDate.of(2024, 1, 1), 80.0);
 
         when(hotelStatisticsService.getDailyOccupancy(eq(hotelId), eq(startDate), eq(endDate)))
                 .thenReturn(dailyOccupancy);
 
-        // Act
+
         ResponseEntity<Map<LocalDate, Double>> response = hotelStatisticsController
                 .getDailyOccupancy(hotelId, startDate, endDate);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -148,17 +146,17 @@ class HotelStatisticsControllerTest {
     @WithMockUser(roles = "ADMIN")
     void getPopularRooms_ShouldReturnPopularRoomsList_WhenValidRequest() {
         // Arrange
-        List<RoomPopularityDto> popularRooms = Arrays.asList(roomPopularityDto);
+        List<RoomPopularityDto> popularRooms = Collections.singletonList(roomPopularityDto);
         Integer limit = 5;
 
         when(hotelStatisticsService.getPopularRooms(eq(hotelId), eq(limit)))
                 .thenReturn(popularRooms);
 
-        // Act
+
         ResponseEntity<List<RoomPopularityDto>> response = hotelStatisticsController
                 .getPopularRooms(hotelId, limit);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -175,23 +173,23 @@ class HotelStatisticsControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getPopularRooms_ShouldHandleNullLimit_WhenLimitNotProvided() {
-        // Arrange
-        List<RoomPopularityDto> popularRooms = Arrays.asList(roomPopularityDto);
 
-        // Когда limit = null, сервис должен получить null
+        List<RoomPopularityDto> popularRooms = Collections.singletonList(roomPopularityDto);
+
+
         when(hotelStatisticsService.getPopularRooms(eq(hotelId), isNull()))
                 .thenReturn(popularRooms);
 
-        // Act - передаем null
+
         ResponseEntity<List<RoomPopularityDto>> response = hotelStatisticsController
                 .getPopularRooms(hotelId, null);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
 
-        // Проверяем, что сервис был вызван с null
+
         verify(hotelStatisticsService, times(1))
                 .getPopularRooms(hotelId, null);
     }
@@ -204,18 +202,18 @@ class HotelStatisticsControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getPopularRooms_ShouldUseDefaultLimit_WhenLimitNotProvided() {
-        // Arrange
-        List<RoomPopularityDto> popularRooms = Arrays.asList(roomPopularityDto);
 
-        // Проверяем, что при вызове без параметра используется defaultValue = 10
+        List<RoomPopularityDto> popularRooms = Collections.singletonList(roomPopularityDto);
+
+
         when(hotelStatisticsService.getPopularRooms(eq(hotelId), eq(10)))
                 .thenReturn(popularRooms);
 
-        // Act - вызываем без явного указания limit (будет использовано defaultValue)
+
         ResponseEntity<List<RoomPopularityDto>> response = hotelStatisticsController
                 .getPopularRooms(hotelId, 10);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -232,18 +230,18 @@ class HotelStatisticsControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getPopularRooms_ShouldUseProvidedLimit_WhenLimitProvided() {
-        // Arrange
-        List<RoomPopularityDto> popularRooms = Arrays.asList(roomPopularityDto);
+
+        List<RoomPopularityDto> popularRooms = Collections.singletonList(roomPopularityDto);
         Integer customLimit = 20;
 
         when(hotelStatisticsService.getPopularRooms(eq(hotelId), eq(customLimit)))
                 .thenReturn(popularRooms);
 
-        // Act
+
         ResponseEntity<List<RoomPopularityDto>> response = hotelStatisticsController
                 .getPopularRooms(hotelId, customLimit);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
 
@@ -259,11 +257,11 @@ class HotelStatisticsControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getHotelStatistics_ShouldHandleServiceExceptions() {
-        // Arrange
+
         when(hotelStatisticsService.getHotelStatistics(eq(hotelId), eq(startDate), eq(endDate)))
                 .thenThrow(new RuntimeException("Hotel not found"));
 
-        // Act & Assert
+
         assertThrows(RuntimeException.class, () -> {
             hotelStatisticsController.getHotelStatistics(hotelId, startDate, endDate);
         });
@@ -280,17 +278,17 @@ class HotelStatisticsControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getDailyOccupancy_ShouldReturnEmptyMap_WhenNoData() {
-        // Arrange
+
         Map<LocalDate, Double> emptyOccupancy = Collections.emptyMap();
 
         when(hotelStatisticsService.getDailyOccupancy(eq(hotelId), eq(startDate), eq(endDate)))
                 .thenReturn(emptyOccupancy);
 
-        // Act
+
         ResponseEntity<Map<LocalDate, Double>> response = hotelStatisticsController
                 .getDailyOccupancy(hotelId, startDate, endDate);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -308,17 +306,17 @@ class HotelStatisticsControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getPopularRooms_ShouldReturnEmptyList_WhenNoRooms() {
-        // Arrange
+
         List<RoomPopularityDto> emptyList = Collections.emptyList();
 
         when(hotelStatisticsService.getPopularRooms(eq(hotelId), eq(10)))
                 .thenReturn(emptyList);
 
-        // Act
+
         ResponseEntity<List<RoomPopularityDto>> response = hotelStatisticsController
                 .getPopularRooms(hotelId, 10);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -336,18 +334,18 @@ class HotelStatisticsControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getPopularRooms_ShouldHandleZeroLimit() {
-        // Arrange
+
         List<RoomPopularityDto> emptyList = Collections.emptyList();
         Integer zeroLimit = 0;
 
         when(hotelStatisticsService.getPopularRooms(eq(hotelId), eq(zeroLimit)))
                 .thenReturn(emptyList);
 
-        // Act
+
         ResponseEntity<List<RoomPopularityDto>> response = hotelStatisticsController
                 .getPopularRooms(hotelId, zeroLimit);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
 

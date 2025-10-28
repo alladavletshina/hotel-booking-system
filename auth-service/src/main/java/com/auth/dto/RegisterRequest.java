@@ -7,7 +7,7 @@ import lombok.Data;
 @Schema(description = "Запрос на регистрацию пользователя")
 public class RegisterRequest {
     @Schema(description = "Имя пользователя", example = "ivan", required = true)
-    private String username;
+    public String username;
 
     @Schema(description = "Пароль", example = "password123", required = true)
     private String password;

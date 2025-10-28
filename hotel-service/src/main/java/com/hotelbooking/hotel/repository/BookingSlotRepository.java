@@ -30,7 +30,6 @@ public interface BookingSlotRepository extends JpaRepository<BookingSlot, Long> 
 
     List<BookingSlot> findByBookingId(Long bookingId);
 
-    List<BookingSlot> findByStatusAndRoomId(String status, Long roomId);
 
     @Query("SELECT bs FROM BookingSlot bs WHERE bs.roomId = :roomId AND bs.status = 'RESERVED' AND bs.createdAt < :expiryTime")
     List<BookingSlot> findExpiredReservations(@Param("roomId") Long roomId,

@@ -28,7 +28,7 @@ public class SecurityConfig {
         http
                 .csrf().disable()
                 .authorizeRequests()
-                // Public endpoints
+
                 .antMatchers(
                         "/",
                         "/swagger-ui.html",
@@ -46,17 +46,15 @@ public class SecurityConfig {
                 .antMatchers(HttpMethod.GET, "/hotels/*/statistics", "/hotels/statistics/**", "/hotels/*/popular-rooms", "/hotels/*/occupancy-daily")
                 .hasRole("ADMIN")
 
-                // INTERNAL endpoints
+
                 .antMatchers("/rooms/*/confirm-availability", "/rooms/*/release")
                 .hasRole("INTERNAL")  // Закомментируйте эту строку
 
                 .antMatchers("/rooms/recommend/date").hasRole("INTERNAL")
 
-                // USER endpoints
                 .antMatchers(HttpMethod.GET, "/hotels", "/hotels/{id}", "/rooms", "/rooms/{id}","/rooms/recommend", "/rooms/{id}","/rooms/hotel/{hotelId}")
                 .hasAnyRole("USER", "ADMIN") // Должен работать для USER и ADMIN
 
-                // ADMIN only endpoints
                 .antMatchers(HttpMethod.POST, "/hotels", "/rooms").hasRole("ADMIN")
                 .antMatchers(HttpMethod.PUT, "/hotels/{id}", "/rooms/{id}").hasRole("ADMIN")
                 .antMatchers(HttpMethod.DELETE, "/hotels/{id}", "/rooms/{id}").hasRole("ADMIN")
@@ -78,14 +76,13 @@ public class SecurityConfig {
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
             List<GrantedAuthority> authorities = new ArrayList<>();
 
-            // Извлекаем роль из claim "role"
             String role = jwt.getClaim("role");
             System.out.println("=== JWT DEBUG ===");
             System.out.println("Username: " + jwt.getSubject());
             System.out.println("Role from token: " + role);
 
             if (role != null && !role.trim().isEmpty()) {
-                // Добавляем с префиксом ROLE_ для Spring Security
+
                 String authority = "ROLE_" + role;
                 authorities.add(new SimpleGrantedAuthority(authority));
                 System.out.println("Added authority: " + authority);

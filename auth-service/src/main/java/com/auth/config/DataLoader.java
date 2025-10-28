@@ -15,7 +15,8 @@ public class DataLoader implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
+
         // Создаем начального администратора, если его нет
         if (authService.findByUsername("admin").isEmpty()) {
             User admin = new User();

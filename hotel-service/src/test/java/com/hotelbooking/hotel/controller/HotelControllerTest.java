@@ -16,7 +16,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -70,18 +69,17 @@ class HotelControllerTest {
      */
     @Test
     void getAllHotels_WithUserRole_ShouldReturnHotelsList() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
-        List<Hotel> hotels = Arrays.asList(testHotel);
-        List<HotelDto> hotelDtos = Arrays.asList(testHotelDto);
+        List<Hotel> hotels = Collections.singletonList(testHotel);
 
         when(hotelService.findAll()).thenReturn(hotels);
         when(hotelMapper.toDto(testHotel)).thenReturn(testHotelDto);
 
-        // Act
+
         ResponseEntity<List<HotelDto>> response = hotelController.getAllHotels();
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -108,16 +106,15 @@ class HotelControllerTest {
     void getAllHotels_WithAdminRole_ShouldReturnHotelsList() {
         // Arrange
         setupUserAuthentication("ROLE_ADMIN");
-        List<Hotel> hotels = Arrays.asList(testHotel);
-        List<HotelDto> hotelDtos = Arrays.asList(testHotelDto);
+        List<Hotel> hotels = Collections.singletonList(testHotel);
 
         when(hotelService.findAll()).thenReturn(hotels);
         when(hotelMapper.toDto(testHotel)).thenReturn(testHotelDto);
 
-        // Act
+
         ResponseEntity<List<HotelDto>> response = hotelController.getAllHotels();
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(hotelService).findAll();
@@ -137,14 +134,14 @@ class HotelControllerTest {
      */
     @Test
     void getHotel_WithExistingId_ShouldReturnHotel() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         when(hotelService.findById(HOTEL_ID)).thenReturn(testHotel);
 
-        // Act
+
         ResponseEntity<?> response = hotelController.getHotel(HOTEL_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -166,15 +163,15 @@ class HotelControllerTest {
      */
     @Test
     void getHotel_WithNonExistingId_ShouldReturnNotFound() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         String errorMessage = "Hotel not found with id: " + HOTEL_ID;
         when(hotelService.findById(HOTEL_ID)).thenThrow(new RuntimeException(errorMessage));
 
-        // Act
+
         ResponseEntity<?> response = hotelController.getHotel(HOTEL_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals(errorMessage, response.getBody());
@@ -197,16 +194,16 @@ class HotelControllerTest {
      */
     @Test
     void createHotel_WithAdminRole_ShouldCreateHotel() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
         when(hotelMapper.toEntity(testHotelDto)).thenReturn(testHotel);
         when(hotelService.save(testHotel)).thenReturn(testHotel);
         when(hotelMapper.toDto(testHotel)).thenReturn(testHotelDto);
 
-        // Act
+
         ResponseEntity<HotelDto> response = hotelController.createHotel(testHotelDto);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -232,16 +229,16 @@ class HotelControllerTest {
      */
     @Test
     void updateHotel_WithExistingHotel_ShouldUpdateHotel() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
         when(hotelMapper.toEntity(testHotelDto)).thenReturn(testHotel);
         when(hotelService.update(HOTEL_ID, testHotel)).thenReturn(testHotel);
         when(hotelMapper.toDto(testHotel)).thenReturn(testHotelDto);
 
-        // Act
+
         ResponseEntity<?> response = hotelController.updateHotel(HOTEL_ID, testHotelDto);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -265,16 +262,16 @@ class HotelControllerTest {
      */
     @Test
     void updateHotel_WithNonExistingHotel_ShouldReturnNotFound() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
         String errorMessage = "Hotel not found with id: " + HOTEL_ID;
         when(hotelMapper.toEntity(testHotelDto)).thenReturn(testHotel);
         when(hotelService.update(HOTEL_ID, testHotel)).thenThrow(new RuntimeException(errorMessage));
 
-        // Act
+
         ResponseEntity<?> response = hotelController.updateHotel(HOTEL_ID, testHotelDto);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals(errorMessage, response.getBody());
@@ -298,14 +295,14 @@ class HotelControllerTest {
      */
     @Test
     void deleteHotel_WithAdminRole_ShouldDeleteHotel() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
         doNothing().when(hotelService).deleteById(HOTEL_ID);
 
-        // Act
+
         ResponseEntity<Void> response = hotelController.deleteHotel(HOTEL_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNull(response.getBody());
@@ -326,14 +323,14 @@ class HotelControllerTest {
      */
     @Test
     void getAllHotels_WithEmptyList_ShouldReturnEmptyList() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         when(hotelService.findAll()).thenReturn(Collections.emptyList());
 
-        // Act
+
         ResponseEntity<List<HotelDto>> response = hotelController.getAllHotels();
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -357,7 +354,7 @@ class HotelControllerTest {
      */
     @Test
     void createHotel_WithMinimalData_ShouldCreateHotel() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
         HotelDto minimalDto = new HotelDto();
         minimalDto.setName("Minimal Hotel");
@@ -381,10 +378,10 @@ class HotelControllerTest {
         when(hotelService.save(minimalHotel)).thenReturn(savedHotel);
         when(hotelMapper.toDto(savedHotel)).thenReturn(savedDto);
 
-        // Act
+
         ResponseEntity<HotelDto> response = hotelController.createHotel(minimalDto);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -409,7 +406,7 @@ class HotelControllerTest {
      */
     @Test
     void getHotel_WithFullHotelData_ShouldReturnCompleteHotel() {
-        // Arrange
+
         setupUserAuthentication("ROLE_USER");
         Hotel fullHotel = new Hotel();
         fullHotel.setId(HOTEL_ID);
@@ -419,10 +416,10 @@ class HotelControllerTest {
 
         when(hotelService.findById(HOTEL_ID)).thenReturn(fullHotel);
 
-        // Act
+
         ResponseEntity<?> response = hotelController.getHotel(HOTEL_ID);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -448,11 +445,11 @@ class HotelControllerTest {
      */
     @Test
     void updateHotel_WithPartialData_ShouldUpdateHotel() {
-        // Arrange
+
         setupUserAuthentication("ROLE_ADMIN");
         HotelDto partialDto = new HotelDto();
         partialDto.setName("Updated Name Only");
-        // address and description are not set
+
 
         Hotel partialHotel = new Hotel();
         partialHotel.setName("Updated Name Only");
@@ -473,10 +470,10 @@ class HotelControllerTest {
         when(hotelService.update(HOTEL_ID, partialHotel)).thenReturn(updatedHotel);
         when(hotelMapper.toDto(updatedHotel)).thenReturn(updatedDto);
 
-        // Act
+
         ResponseEntity<?> response = hotelController.updateHotel(HOTEL_ID, partialDto);
 
-        // Assert
+
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
