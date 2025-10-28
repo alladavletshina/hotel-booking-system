@@ -65,7 +65,7 @@ public class UserController {
             @ApiResponse(responseCode = "200", description = "Пользователь успешно создан"),
             @ApiResponse(responseCode = "403", description = "Доступ запрещен")
     })
-    @PostMapping
+    @PatchMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> createUser(@RequestBody UserDto userDto) {
         User user = userMapper.toEntity(userDto);

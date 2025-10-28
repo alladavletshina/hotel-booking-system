@@ -27,6 +27,7 @@ public class BookingMapper {
         dto.setCreatedAt(booking.getCreatedAt());
         dto.setUpdatedAt(booking.getUpdatedAt());
         dto.setCorrelationId(booking.getCorrelationId());
+        dto.setAutoSelect(booking.getAutoSelect()); // НОВОЕ ПОЛЕ
 
         return dto;
     }
@@ -43,9 +44,8 @@ public class BookingMapper {
         }
 
         Jwt jwt = (Jwt) authentication.getPrincipal();
-        String username = jwt.getClaimAsString("sub"); // username из токена
+        String username = jwt.getClaimAsString("sub");
 
-        // Получаем userId из claims (может быть как Long, так и String)
         Long userId = extractUserIdFromJwt(jwt);
 
         Booking booking = new Booking();
@@ -55,6 +55,7 @@ public class BookingMapper {
         booking.setStartDate(request.getStartDate());
         booking.setEndDate(request.getEndDate());
         booking.setCorrelationId(request.getCorrelationId());
+        booking.setAutoSelect(request.getAutoSelect() != null ? request.getAutoSelect() : false);
 
         return booking;
     }

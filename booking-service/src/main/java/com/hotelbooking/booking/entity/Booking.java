@@ -15,10 +15,10 @@ public class Booking {
     private Long id;
 
     @Column(name = "user_id", nullable = false)
-    private Long userId; // Теперь просто ID пользователя из JWT токена
+    private Long userId;
 
     @Column(name = "username", nullable = false)
-    private String username; // Имя пользователя из JWT токена
+    private String username;
 
     @Column(name = "room_id", nullable = false)
     private Long roomId;
@@ -42,10 +42,17 @@ public class Booking {
     @Column(name = "correlation_id")
     private String correlationId;
 
+    // НОВОЕ ПОЛЕ для автоподбора
+    @Column(name = "auto_select", nullable = false)
+    private Boolean autoSelect = false;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         status = BookingStatus.PENDING;
+        if (autoSelect == null) {
+            autoSelect = false;
+        }
     }
 
     @PreUpdate

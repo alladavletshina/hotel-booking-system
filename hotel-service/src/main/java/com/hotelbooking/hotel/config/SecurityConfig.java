@@ -47,6 +47,8 @@ public class SecurityConfig {
                 .antMatchers("/rooms/*/confirm-availability", "/rooms/*/release")
                 .hasRole("INTERNAL")  // Закомментируйте эту строку
 
+                .antMatchers("/rooms/recommend/date").hasRole("INTERNAL")
+
                 // USER endpoints
                 .antMatchers(HttpMethod.GET, "/hotels", "/hotels/{id}", "/rooms", "/rooms/{id}","/rooms/recommend", "/rooms/{id}","/rooms/hotel/{hotelId}")
                 .hasAnyRole("USER", "ADMIN") // Должен работать для USER и ADMIN

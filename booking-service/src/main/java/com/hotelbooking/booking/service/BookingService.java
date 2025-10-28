@@ -1,6 +1,9 @@
 package com.hotelbooking.booking.service;
 
 import com.hotelbooking.booking.client.HotelServiceClient;
+import com.hotelbooking.booking.client.dto.RoomRecommendation;
+import com.hotelbooking.booking.client.dto.AvailabilityRequest;
+import com.hotelbooking.booking.client.dto.ReleaseRequest;
 import com.hotelbooking.booking.entity.Booking;
 import com.hotelbooking.booking.entity.BookingStatus;
 import com.hotelbooking.booking.repository.BookingRepository;
@@ -29,7 +32,8 @@ public class BookingService {
 
     @Transactional
     public Booking createBooking(Booking booking, String correlationId) {
-        log.info("Creating booking with correlationId: {}", correlationId);
+        log.info("Creating booking with correlationId: {}, autoSelect: {}",
+                correlationId, booking.getAutoSelect());
 
         // Проверяем идемпотентность
         if (correlationId != null && bookingRepository.existsByCorrelationId(correlationId)) {
@@ -41,6 +45,20 @@ public class BookingService {
         // Проверяем даты
         validateBookingDates(booking);
 
+        // АВТОПОДБОР КОМНАТЫ - НОВАЯ ФУНКЦИОНАЛЬНОСТЬ
+        if (booking.getAutoSelect() != null && booking.getAutoSelect()) {
+            log.info("Auto-selecting best available room for dates {} to {}",
+                    booking.getStartDate(), booking.getEndDate());
+            Long selectedRoomId = autoSelectBestRoom(booking.getStartDate(), booking.getEndDate());
+            booking.setRoomId(selectedRoomId);
+            log.info("Auto-selected room ID: {}", selectedRoomId);
+        }
+
+        // Проверяем, что комната указана
+        if (booking.getRoomId() == null) {
+            throw new RuntimeException("Room ID is required when autoSelect is false");
+        }
+
         // Устанавливаем начальные значения
         booking.setCorrelationId(correlationId != null ? correlationId : UUID.randomUUID().toString());
         booking.setStatus(BookingStatus.PENDING);
@@ -48,8 +66,9 @@ public class BookingService {
 
         // Сохраняем бронирование в статусе PENDING
         Booking savedBooking = bookingRepository.save(booking);
-        log.info("Booking created with PENDING status: ID {}, Room {}, User {}",
-                savedBooking.getId(), savedBooking.getRoomId(), savedBooking.getUserId());
+        log.info("Booking created with PENDING status: ID {}, Room {}, User {}, AutoSelect: {}",
+                savedBooking.getId(), savedBooking.getRoomId(), savedBooking.getUserId(),
+                savedBooking.getAutoSelect());
 
         try {
             // Проверяем, что internal аутентификация настроена
@@ -61,7 +80,16 @@ public class BookingService {
 
             // Шаг 1: Подтверждаем доступность номера через Hotel Service
             log.info("Confirming availability for room {} via Hotel Service", savedBooking.getRoomId());
-            Boolean isAvailable = hotelServiceClient.confirmAvailability(savedBooking.getRoomId());
+
+            // СОЗДАЕМ AvailabilityRequest С ДАТАМИ
+            AvailabilityRequest availabilityRequest = new AvailabilityRequest();
+            availabilityRequest.setStartDate(savedBooking.getStartDate());
+            availabilityRequest.setEndDate(savedBooking.getEndDate());
+            availabilityRequest.setBookingId(savedBooking.getId());
+
+            // ОБНОВЛЕННЫЙ ВЫЗОВ С DTO
+            Boolean isAvailable = hotelServiceClient.confirmAvailability(
+                    savedBooking.getRoomId(), availabilityRequest);
 
             if (Boolean.TRUE.equals(isAvailable)) {
                 // Шаг 2: Если доступно - подтверждаем бронирование
@@ -86,13 +114,105 @@ public class BookingService {
         }
     }
 
+    /**
+     * НОВЫЙ МЕТОД: Автоматический подбор лучшей доступной комнаты
+     */
+    private Long autoSelectBestRoom(LocalDate startDate, LocalDate endDate) {
+        try {
+            log.info("Starting auto-selection for dates: {} to {}", startDate, endDate);
+
+            // Получаем рекомендованные комнаты от Hotel Service
+            List<RoomRecommendation> recommendedRooms = hotelServiceClient
+                    .getRecommendedRooms(startDate, endDate);
+
+            if (recommendedRooms == null || recommendedRooms.isEmpty()) {
+                log.warn("No available rooms found for auto-selection");
+                throw new RuntimeException("No available rooms found for selected dates");
+            }
+
+            // Берем первую (наименее популярную) комнату из рекомендованных
+            RoomRecommendation bestRoom = recommendedRooms.get(0);
+            log.info("Auto-selected room: ID {}, Type {}, Price {}, Times Booked: {}",
+                    bestRoom.getId(), bestRoom.getType(), bestRoom.getPrice(),
+                    bestRoom.getTimesBooked());
+
+            return bestRoom.getId();
+
+        } catch (Exception e) {
+            log.error("Error during auto-selection: {}", e.getMessage());
+            throw new RuntimeException("Auto-selection failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * НОВЫЙ МЕТОД: Получить список рекомендованных комнат для пользователя
+     */
+    public List<RoomRecommendation> getRecommendedRooms(LocalDate startDate, LocalDate endDate) {
+        validateDates(startDate, endDate);
+
+        try {
+            log.info("Getting recommended rooms for dates: {} to {}", startDate, endDate);
+            return hotelServiceClient.getRecommendedRooms(startDate, endDate);
+        } catch (Exception e) {
+            log.error("Error getting recommended rooms: {}", e.getMessage());
+            throw new RuntimeException("Unable to get room recommendations: " + e.getMessage());
+        }
+    }
+
+    /**
+     * НОВЫЙ МЕТОД: Получить несколько лучших вариантов для выбора
+     */
+    public List<RoomRecommendation> getTopRecommendedRooms(LocalDate startDate, LocalDate endDate, int limit) {
+        validateDates(startDate, endDate);
+
+        try {
+            log.info("Getting top {} recommended rooms for dates: {} to {}", limit, startDate, endDate);
+            List<RoomRecommendation> allRecommendations = hotelServiceClient.getRecommendedRooms(startDate, endDate);
+
+            if (allRecommendations.size() > limit) {
+                return allRecommendations.subList(0, limit);
+            }
+
+            return allRecommendations;
+        } catch (Exception e) {
+            log.error("Error getting top recommended rooms: {}", e.getMessage());
+            throw new RuntimeException("Unable to get room recommendations: " + e.getMessage());
+        }
+    }
+
+    /**
+     * НОВЫЙ МЕТОД: Валидация дат для рекомендаций
+     */
+    private void validateDates(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            throw new IllegalArgumentException("Start date and end date are required");
+        }
+
+        if (startDate.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Start date cannot be in the past");
+        }
+
+        if (endDate.isBefore(startDate) || endDate.isEqual(startDate)) {
+            throw new IllegalArgumentException("End date must be after start date");
+        }
+
+        if (startDate.plusMonths(1).isBefore(endDate)) {
+            throw new IllegalArgumentException("Booking period cannot exceed 1 month");
+        }
+    }
+
     private void handleBookingFailure(Booking booking, String reason) {
         try {
             // Освобождаем номер в Hotel Service (компенсирующее действие)
             if (booking.getRoomId() != null) {
                 log.info("Releasing room {} due to booking failure", booking.getRoomId());
                 try {
-                    hotelServiceClient.releaseRoom(booking.getRoomId());
+                    // СОЗДАЕМ ReleaseRequest
+                    ReleaseRequest releaseRequest = new ReleaseRequest();
+                    releaseRequest.setBookingId(booking.getId());
+
+                    // ОБНОВЛЕННЫЙ ВЫЗОВ С DTO
+                    hotelServiceClient.releaseRoom(booking.getRoomId(), releaseRequest);
                 } catch (Exception e) {
                     log.error("Error releasing room {}: {}", booking.getRoomId(), e.getMessage());
                 }
@@ -139,7 +259,12 @@ public class BookingService {
         if (booking.getRoomId() != null) {
             log.info("Releasing room {} due to booking cancellation", booking.getRoomId());
             try {
-                hotelServiceClient.releaseRoom(booking.getRoomId());
+                // СОЗДАЕМ ReleaseRequest
+                ReleaseRequest releaseRequest = new ReleaseRequest();
+                releaseRequest.setBookingId(bookingId);
+
+                // ОБНОВЛЕННЫЙ ВЫЗОВ С DTO
+                hotelServiceClient.releaseRoom(booking.getRoomId(), releaseRequest);
             } catch (Exception e) {
                 log.error("Error releasing room {}: {}", booking.getRoomId(), e.getMessage());
             }
@@ -153,6 +278,8 @@ public class BookingService {
 
         return cancelledBooking;
     }
+
+    // Остальные методы остаются без изменений
 
     public List<Booking> getUserBookings(Long userId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -216,7 +343,6 @@ public class BookingService {
             return null;
         }
     }
-
 
     private Long generateUserIdFromUsername(String username) {
         // Генерируем стабильный числовой ID из username

@@ -1,6 +1,5 @@
 package com.hotelbooking.hotel.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hotelbooking.hotel.dto.HotelDto;
 import com.hotelbooking.hotel.entity.Hotel;
 import com.hotelbooking.hotel.mapper.HotelMapper;
@@ -11,22 +10,22 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
 class HotelControllerTest {
-
-    private MockMvc mockMvc;
 
     @Mock
     private HotelService hotelService;
@@ -37,257 +36,466 @@ class HotelControllerTest {
     @InjectMocks
     private HotelController hotelController;
 
-    private ObjectMapper objectMapper;
     private Hotel testHotel;
     private HotelDto testHotelDto;
+    private final Long HOTEL_ID = 1L;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(hotelController).build();
-        objectMapper = new ObjectMapper();
-
-        // Подготовка тестовых данных
         testHotel = new Hotel();
-        testHotel.setId(1L);
+        testHotel.setId(HOTEL_ID);
         testHotel.setName("Test Hotel");
-        testHotel.setAddress("Test Address");
-        testHotel.setDescription("Test Description");
+        testHotel.setAddress("123 Test Street");
+        testHotel.setDescription("A wonderful test hotel");
 
         testHotelDto = new HotelDto();
-        testHotelDto.setId(1L);
+        testHotelDto.setId(HOTEL_ID);
         testHotelDto.setName("Test Hotel");
-        testHotelDto.setAddress("Test Address");
-        testHotelDto.setDescription("Test Description");
+        testHotelDto.setAddress("123 Test Street");
+        testHotelDto.setDescription("A wonderful test hotel");
     }
 
     /**
      * Тест для endpoint: GET /hotels
-     * Назначение: Получение списка всех отелей
+     * Назначение: Получение всех отелей
+     * Сценарий: Успешное получение списка отелей пользователем
      * Ожидаемый результат:
-     * - HTTP статус 200 (OK)
-     * - Возвращает список отелей в формате DTO
+     * - Возвращает статус 200 OK
+     * - Возвращает список отелей в DTO формате
+     * Бизнес-логика:
+     * 1. Проверяет права доступа (USER или ADMIN)
+     * 2. Получает все отели из сервиса
+     * 3. Преобразует список сущностей в список DTO
+     * 4. Возвращает результат
      */
     @Test
-    void getAllHotels_ShouldReturnListOfHotels() throws Exception {
+    void getAllHotels_WithUserRole_ShouldReturnHotelsList() {
         // Arrange
+        setupUserAuthentication("ROLE_USER");
         List<Hotel> hotels = Arrays.asList(testHotel);
         List<HotelDto> hotelDtos = Arrays.asList(testHotelDto);
 
         when(hotelService.findAll()).thenReturn(hotels);
         when(hotelMapper.toDto(testHotel)).thenReturn(testHotelDto);
 
-        // Act & Assert
-        mockMvc.perform(get("/hotels")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].name").value("Test Hotel"))
-                .andExpect(jsonPath("$[0].address").value("Test Address"));
+        // Act
+        ResponseEntity<List<HotelDto>> response = hotelController.getAllHotels();
 
-        verify(hotelService, times(1)).findAll();
-        verify(hotelMapper, times(1)).toDto(testHotel);
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        assertEquals(HOTEL_ID, response.getBody().get(0).getId());
+
+        verify(hotelService).findAll();
+        verify(hotelMapper).toDto(testHotel);
     }
 
     /**
-     * Тест для endpoint: GET /hotels/{id}
-     * Назначение: Получение отеля по ID
-     * Сценарий: Отель существует
+     * Тест для endpoint: GET /hotels
+     * Назначение: Получение всех отелей
+     * Сценарий: Успешное получение списка отелей администратором
      * Ожидаемый результат:
-     * - HTTP статус 200 (OK)
-     * - Возвращает данные отеля
+     * - Возвращает статус 200 OK
+     * - Администратор имеет доступ к списку отелей
+     * Бизнес-логика:
+     * 1. Проверяет роль ADMIN у текущего пользователя
+     * 2. Разрешает доступ к списку отелей
+     * 3. Возвращает список отелей
      */
     @Test
-    void getHotel_ShouldReturnHotel_WhenHotelExists() throws Exception {
+    void getAllHotels_WithAdminRole_ShouldReturnHotelsList() {
         // Arrange
-        when(hotelService.findById(1L)).thenReturn(testHotel);
+        setupUserAuthentication("ROLE_ADMIN");
+        List<Hotel> hotels = Arrays.asList(testHotel);
+        List<HotelDto> hotelDtos = Arrays.asList(testHotelDto);
 
-        // Act & Assert
-        mockMvc.perform(get("/hotels/1")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.name").value("Test Hotel"));
+        when(hotelService.findAll()).thenReturn(hotels);
+        when(hotelMapper.toDto(testHotel)).thenReturn(testHotelDto);
 
-        verify(hotelService, times(1)).findById(1L);
+        // Act
+        ResponseEntity<List<HotelDto>> response = hotelController.getAllHotels();
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(hotelService).findAll();
     }
 
     /**
      * Тест для endpoint: GET /hotels/{id}
      * Назначение: Получение отеля по ID
-     * Сценарий: Отель не найден
+     * Сценарий: Успешное получение существующего отеля
      * Ожидаемый результат:
-     * - HTTP статус 404 (Not Found)
+     * - Возвращает статус 200 OK
+     * - Возвращает отель в формате сущности
+     * Бизнес-логика:
+     * 1. Проверяет права доступа (USER или ADMIN)
+     * 2. Получает отель по ID из сервиса
+     * 3. Возвращает отель в формате сущности (не DTO)
+     */
+    @Test
+    void getHotel_WithExistingId_ShouldReturnHotel() {
+        // Arrange
+        setupUserAuthentication("ROLE_USER");
+        when(hotelService.findById(HOTEL_ID)).thenReturn(testHotel);
+
+        // Act
+        ResponseEntity<?> response = hotelController.getHotel(HOTEL_ID);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(testHotel, response.getBody());
+
+        verify(hotelService).findById(HOTEL_ID);
+    }
+
+    /**
+     * Тест для endpoint: GET /hotels/{id}
+     * Назначение: Получение отеля по ID
+     * Сценарий: Отель с указанным ID не найден
+     * Ожидаемый результат:
+     * - Возвращает статус 404 NOT FOUND
      * - Возвращает сообщение об ошибке
+     * Бизнес-логика:
+     * 1. Ищет отель по ID в сервисе
+     * 2. При отсутствии отеля возвращает 404 с сообщением
      */
     @Test
-    void getHotel_ShouldReturnNotFound_WhenHotelDoesNotExist() throws Exception {
+    void getHotel_WithNonExistingId_ShouldReturnNotFound() {
         // Arrange
-        when(hotelService.findById(1L)).thenThrow(new RuntimeException("Hotel not found with id: 1"));
+        setupUserAuthentication("ROLE_USER");
+        String errorMessage = "Hotel not found with id: " + HOTEL_ID;
+        when(hotelService.findById(HOTEL_ID)).thenThrow(new RuntimeException(errorMessage));
 
-        // Act & Assert
-        mockMvc.perform(get("/hotels/1")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound())
-                .andExpect(content().string("Hotel not found with id: 1"));
+        // Act
+        ResponseEntity<?> response = hotelController.getHotel(HOTEL_ID);
 
-        verify(hotelService, times(1)).findById(1L);
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(errorMessage, response.getBody());
+
+        verify(hotelService).findById(HOTEL_ID);
     }
 
     /**
      * Тест для endpoint: POST /hotels
      * Назначение: Создание нового отеля
+     * Сценарий: Успешное создание отеля администратором
      * Ожидаемый результат:
-     * - HTTP статус 200 (OK)
-     * - Возвращает созданный отель в формате DTO
+     * - Возвращает статус 200 OK
+     * - Возвращает созданный отель в DTO формате
+     * Бизнес-логика:
+     * 1. Проверяет роль ADMIN у текущего пользователя
+     * 2. Преобразует DTO в сущность
+     * 3. Сохраняет отель через сервис
+     * 4. Преобразует результат в DTO и возвращает
      */
     @Test
-    void createHotel_ShouldReturnCreatedHotel() throws Exception {
+    void createHotel_WithAdminRole_ShouldCreateHotel() {
         // Arrange
-        HotelDto requestDto = new HotelDto();
-        requestDto.setName("New Hotel");
-        requestDto.setAddress("New Address");
-        requestDto.setDescription("New Description");
+        setupUserAuthentication("ROLE_ADMIN");
+        when(hotelMapper.toEntity(testHotelDto)).thenReturn(testHotel);
+        when(hotelService.save(testHotel)).thenReturn(testHotel);
+        when(hotelMapper.toDto(testHotel)).thenReturn(testHotelDto);
 
-        Hotel savedHotel = new Hotel();
-        savedHotel.setId(2L);
-        savedHotel.setName("New Hotel");
-        savedHotel.setAddress("New Address");
-        savedHotel.setDescription("New Description");
+        // Act
+        ResponseEntity<HotelDto> response = hotelController.createHotel(testHotelDto);
 
-        HotelDto responseDto = new HotelDto();
-        responseDto.setId(2L);
-        responseDto.setName("New Hotel");
-        responseDto.setAddress("New Address");
-        responseDto.setDescription("New Description");
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(HOTEL_ID, response.getBody().getId());
 
-        when(hotelMapper.toEntity(requestDto)).thenReturn(savedHotel);
-        when(hotelService.save(any(Hotel.class))).thenReturn(savedHotel);
-        when(hotelMapper.toDto(savedHotel)).thenReturn(responseDto);
-
-        // Act & Assert
-        mockMvc.perform(post("/hotels")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(requestDto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(2L))
-                .andExpect(jsonPath("$.name").value("New Hotel"))
-                .andExpect(jsonPath("$.address").value("New Address"));
-
-        verify(hotelMapper, times(1)).toEntity(requestDto);
-        verify(hotelService, times(1)).save(savedHotel);
-        verify(hotelMapper, times(1)).toDto(savedHotel);
+        verify(hotelMapper).toEntity(testHotelDto);
+        verify(hotelService).save(testHotel);
+        verify(hotelMapper).toDto(testHotel);
     }
 
     /**
      * Тест для endpoint: PUT /hotels/{id}
      * Назначение: Обновление данных отеля
+     * Сценарий: Успешное обновление существующего отеля администратором
      * Ожидаемый результат:
-     * - HTTP статус 200 (OK)
-     * - Возвращает обновленный отель в формате DTO
+     * - Возвращает статус 200 OK
+     * - Возвращает обновленный отель в DTO формате
+     * Бизнес-логика:
+     * 1. Проверяет роль ADMIN у текущего пользователя
+     * 2. Преобразует DTO в сущность
+     * 3. Обновляет отель через сервис
+     * 4. Преобразует результат в DTO и возвращает
      */
     @Test
-    void updateHotel_ShouldReturnUpdatedHotel() throws Exception {
+    void updateHotel_WithExistingHotel_ShouldUpdateHotel() {
         // Arrange
-        HotelDto updateDto = new HotelDto();
-        updateDto.setName("Updated Hotel");
-        updateDto.setAddress("Updated Address");
-        updateDto.setDescription("Updated Description");
+        setupUserAuthentication("ROLE_ADMIN");
+        when(hotelMapper.toEntity(testHotelDto)).thenReturn(testHotel);
+        when(hotelService.update(HOTEL_ID, testHotel)).thenReturn(testHotel);
+        when(hotelMapper.toDto(testHotel)).thenReturn(testHotelDto);
 
-        Hotel updatedHotel = new Hotel();
-        updatedHotel.setId(1L);
-        updatedHotel.setName("Updated Hotel");
-        updatedHotel.setAddress("Updated Address");
-        updatedHotel.setDescription("Updated Description");
+        // Act
+        ResponseEntity<?> response = hotelController.updateHotel(HOTEL_ID, testHotelDto);
 
-        HotelDto responseDto = new HotelDto();
-        responseDto.setId(1L);
-        responseDto.setName("Updated Hotel");
-        responseDto.setAddress("Updated Address");
-        responseDto.setDescription("Updated Description");
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(HOTEL_ID, ((HotelDto) response.getBody()).getId());
 
-        when(hotelMapper.toEntity(updateDto)).thenReturn(updatedHotel);
-        when(hotelService.update(eq(1L), any(Hotel.class))).thenReturn(updatedHotel);
-        when(hotelMapper.toDto(updatedHotel)).thenReturn(responseDto);
+        verify(hotelMapper).toEntity(testHotelDto);
+        verify(hotelService).update(HOTEL_ID, testHotel);
+        verify(hotelMapper).toDto(testHotel);
+    }
 
-        // Act & Assert
-        mockMvc.perform(put("/hotels/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDto)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.name").value("Updated Hotel"))
-                .andExpect(jsonPath("$.address").value("Updated Address"));
+    /**
+     * Тест для endpoint: PUT /hotels/{id}
+     * Назначение: Обновление данных отеля
+     * Сценарий: Попытка обновления несуществующего отеля
+     * Ожидаемый результат:
+     * - Возвращает статус 404 NOT FOUND
+     * - Возвращает сообщение об ошибке
+     * Бизнес-логика:
+     * 1. Пытается обновить отель по ID
+     * 2. При отсутствии отеля возвращает 404 с сообщением
+     */
+    @Test
+    void updateHotel_WithNonExistingHotel_ShouldReturnNotFound() {
+        // Arrange
+        setupUserAuthentication("ROLE_ADMIN");
+        String errorMessage = "Hotel not found with id: " + HOTEL_ID;
+        when(hotelMapper.toEntity(testHotelDto)).thenReturn(testHotel);
+        when(hotelService.update(HOTEL_ID, testHotel)).thenThrow(new RuntimeException(errorMessage));
 
-        verify(hotelMapper, times(1)).toEntity(updateDto);
-        verify(hotelService, times(1)).update(eq(1L), any(Hotel.class));
-        verify(hotelMapper, times(1)).toDto(updatedHotel);
+        // Act
+        ResponseEntity<?> response = hotelController.updateHotel(HOTEL_ID, testHotelDto);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(errorMessage, response.getBody());
+
+        verify(hotelMapper).toEntity(testHotelDto);
+        verify(hotelService).update(HOTEL_ID, testHotel);
+        verify(hotelMapper, never()).toDto(any(Hotel.class));
     }
 
     /**
      * Тест для endpoint: DELETE /hotels/{id}
      * Назначение: Удаление отеля по ID
+     * Сценарий: Успешное удаление отеля администратором
      * Ожидаемый результат:
-     * - HTTP статус 200 (OK)
-     * - Пустое тело ответа
+     * - Возвращает статус 200 OK
+     * - Тело ответа пустое
+     * Бизнес-логика:
+     * 1. Проверяет роль ADMIN у текущего пользователя
+     * 2. Вызывает сервис для удаления отеля
+     * 3. Возвращает успешный статус без тела
      */
     @Test
-    void deleteHotel_ShouldReturnOk_WhenHotelDeleted() throws Exception {
+    void deleteHotel_WithAdminRole_ShouldDeleteHotel() {
         // Arrange
-        doNothing().when(hotelService).deleteById(1L);
+        setupUserAuthentication("ROLE_ADMIN");
+        doNothing().when(hotelService).deleteById(HOTEL_ID);
 
-        // Act & Assert
-        mockMvc.perform(delete("/hotels/1")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+        // Act
+        ResponseEntity<Void> response = hotelController.deleteHotel(HOTEL_ID);
 
-        verify(hotelService, times(1)).deleteById(1L);
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(hotelService).deleteById(HOTEL_ID);
     }
 
     /**
      * Тест для endpoint: GET /hotels
-     * Назначение: Получение пустого списка отелей
+     * Назначение: Получение всех отелей
+     * Сценарий: Пустой список отелей
      * Ожидаемый результат:
-     * - HTTP статус 200 (OK)
-     * - Пустой массив в ответе
+     * - Возвращает статус 200 OK
+     * - Возвращает пустой список
+     * Бизнес-логика:
+     * 1. Обрабатывает случай отсутствия отелей
+     * 2. Возвращает корректный пустой ответ
      */
     @Test
-    void getAllHotels_ShouldReturnEmptyList_WhenNoHotelsExist() throws Exception {
+    void getAllHotels_WithEmptyList_ShouldReturnEmptyList() {
         // Arrange
-        when(hotelService.findAll()).thenReturn(Arrays.asList());
+        setupUserAuthentication("ROLE_USER");
+        when(hotelService.findAll()).thenReturn(Collections.emptyList());
 
-        // Act & Assert
-        mockMvc.perform(get("/hotels")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$").isEmpty());
+        // Act
+        ResponseEntity<List<HotelDto>> response = hotelController.getAllHotels();
 
-        verify(hotelService, times(1)).findAll();
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty());
+
+        verify(hotelService).findAll();
+        verify(hotelMapper, never()).toDto(any(Hotel.class));
+    }
+
+    /**
+     * Тест для endpoint: POST /hotels
+     * Назначение: Создание нового отеля
+     * Сценарий: Создание отеля с минимальными данными
+     * Ожидаемый результат:
+     * - Возвращает статус 200 OK
+     * - Корректно обрабатывает отель с неполными данными
+     * Бизнес-логика:
+     * 1. Принимает DTO с обязательными полями
+     * 2. Сохраняет отель даже с неполными данными
+     * 3. Возвращает сохраненный отель
+     */
+    @Test
+    void createHotel_WithMinimalData_ShouldCreateHotel() {
+        // Arrange
+        setupUserAuthentication("ROLE_ADMIN");
+        HotelDto minimalDto = new HotelDto();
+        minimalDto.setName("Minimal Hotel");
+        minimalDto.setAddress("Minimal Address");
+
+        Hotel minimalHotel = new Hotel();
+        minimalHotel.setName("Minimal Hotel");
+        minimalHotel.setAddress("Minimal Address");
+
+        Hotel savedHotel = new Hotel();
+        savedHotel.setId(2L);
+        savedHotel.setName("Minimal Hotel");
+        savedHotel.setAddress("Minimal Address");
+
+        HotelDto savedDto = new HotelDto();
+        savedDto.setId(2L);
+        savedDto.setName("Minimal Hotel");
+        savedDto.setAddress("Minimal Address");
+
+        when(hotelMapper.toEntity(minimalDto)).thenReturn(minimalHotel);
+        when(hotelService.save(minimalHotel)).thenReturn(savedHotel);
+        when(hotelMapper.toDto(savedHotel)).thenReturn(savedDto);
+
+        // Act
+        ResponseEntity<HotelDto> response = hotelController.createHotel(minimalDto);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(2L, response.getBody().getId());
+        assertEquals("Minimal Hotel", response.getBody().getName());
+
+        verify(hotelMapper).toEntity(minimalDto);
+        verify(hotelService).save(minimalHotel);
+        verify(hotelMapper).toDto(savedHotel);
+    }
+
+    /**
+     * Тест для endpoint: GET /hotels/{id}
+     * Назначение: Получение отеля по ID
+     * Сценарий: Получение отеля с полными данными
+     * Ожидаемый результат:
+     * - Возвращает статус 200 OK
+     * - Возвращает отель со всеми заполненными полями
+     * Бизнес-логика:
+     * 1. Получает отель по ID
+     * 2. Возвращает полную информацию об отеле
+     */
+    @Test
+    void getHotel_WithFullHotelData_ShouldReturnCompleteHotel() {
+        // Arrange
+        setupUserAuthentication("ROLE_USER");
+        Hotel fullHotel = new Hotel();
+        fullHotel.setId(HOTEL_ID);
+        fullHotel.setName("Luxury Hotel");
+        fullHotel.setAddress("456 Luxury Avenue");
+        fullHotel.setDescription("A 5-star luxury hotel with all amenities");
+
+        when(hotelService.findById(HOTEL_ID)).thenReturn(fullHotel);
+
+        // Act
+        ResponseEntity<?> response = hotelController.getHotel(HOTEL_ID);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        Hotel returnedHotel = (Hotel) response.getBody();
+        assertEquals("Luxury Hotel", returnedHotel.getName());
+        assertEquals("456 Luxury Avenue", returnedHotel.getAddress());
+        assertEquals("A 5-star luxury hotel with all amenities", returnedHotel.getDescription());
+
+        verify(hotelService).findById(HOTEL_ID);
     }
 
     /**
      * Тест для endpoint: PUT /hotels/{id}
-     * Назначение: Обновление несуществующего отеля
-     * Сценарий: Отель не найден при обновлении
+     * Назначение: Обновление данных отеля
+     * Сценарий: Частичное обновление данных отеля
      * Ожидаемый результат:
-     * - Исключение должно быть проброшено из сервиса
+     * - Возвращает статус 200 OK
+     * - Обновляет только указанные поля отеля
+     * Бизнес-логика:
+     * 1. Принимает DTO с частичными данными
+     * 2. Обновляет отель через сервис
+     * 3. Возвращает обновленный отель
      */
     @Test
-    void updateHotel_ShouldThrowException_WhenHotelNotFound() throws Exception {
+    void updateHotel_WithPartialData_ShouldUpdateHotel() {
         // Arrange
-        HotelDto updateDto = new HotelDto();
-        updateDto.setName("Non-existent Hotel");
+        setupUserAuthentication("ROLE_ADMIN");
+        HotelDto partialDto = new HotelDto();
+        partialDto.setName("Updated Name Only");
+        // address and description are not set
 
-        when(hotelMapper.toEntity(updateDto)).thenReturn(new Hotel());
-        when(hotelService.update(eq(999L), any(Hotel.class)))
-                .thenThrow(new RuntimeException("Hotel not found with id: 999"));
+        Hotel partialHotel = new Hotel();
+        partialHotel.setName("Updated Name Only");
 
-        // Act & Assert
-        mockMvc.perform(put("/hotels/999")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDto)))
-                .andExpect(status().isNotFound());
+        Hotel updatedHotel = new Hotel();
+        updatedHotel.setId(HOTEL_ID);
+        updatedHotel.setName("Updated Name Only");
+        updatedHotel.setAddress("123 Test Street"); // Original address preserved
+        updatedHotel.setDescription("A wonderful test hotel"); // Original description preserved
 
-        verify(hotelService, times(1)).update(eq(999L), any(Hotel.class));
+        HotelDto updatedDto = new HotelDto();
+        updatedDto.setId(HOTEL_ID);
+        updatedDto.setName("Updated Name Only");
+        updatedDto.setAddress("123 Test Street");
+        updatedDto.setDescription("A wonderful test hotel");
+
+        when(hotelMapper.toEntity(partialDto)).thenReturn(partialHotel);
+        when(hotelService.update(HOTEL_ID, partialHotel)).thenReturn(updatedHotel);
+        when(hotelMapper.toDto(updatedHotel)).thenReturn(updatedDto);
+
+        // Act
+        ResponseEntity<?> response = hotelController.updateHotel(HOTEL_ID, partialDto);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        HotelDto resultDto = (HotelDto) response.getBody();
+        assertEquals("Updated Name Only", resultDto.getName());
+        assertEquals("123 Test Street", resultDto.getAddress());
+
+        verify(hotelMapper).toEntity(partialDto);
+        verify(hotelService).update(HOTEL_ID, partialHotel);
+        verify(hotelMapper).toDto(updatedHotel);
+    }
+
+    private void setupUserAuthentication(String role) {
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        "testUser",
+                        null,
+                        Collections.singletonList(new SimpleGrantedAuthority(role))
+                );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 }

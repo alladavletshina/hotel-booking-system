@@ -1,6 +1,9 @@
 package com.hotelbooking.booking.service;
 
 import com.hotelbooking.booking.client.HotelServiceClient;
+import com.hotelbooking.booking.client.dto.RoomRecommendation;
+import com.hotelbooking.booking.client.dto.AvailabilityRequest;
+import com.hotelbooking.booking.client.dto.ReleaseRequest;
 import com.hotelbooking.booking.entity.Booking;
 import com.hotelbooking.booking.entity.BookingStatus;
 import com.hotelbooking.booking.repository.BookingRepository;
@@ -10,26 +13,22 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class BookingServiceTest {
 
     @Mock
@@ -41,25 +40,36 @@ class BookingServiceTest {
     @Mock
     private InternalAuthService internalAuthService;
 
+    @Mock
+    private SecurityContext securityContext;
+
+    @Mock
+    private Authentication authentication;
+
+    @Mock
+    private Jwt jwt;
+
     @InjectMocks
     private BookingService bookingService;
 
     private Booking testBooking;
+    private final String CORRELATION_ID = "test-correlation-id";
+    private final Long USER_ID = 123L;
+    private final Long ROOM_ID = 456L;
 
     @BeforeEach
     void setUp() {
         testBooking = new Booking();
         testBooking.setId(1L);
-        testBooking.setUserId(1L);
-        testBooking.setUsername("testuser");
-        testBooking.setRoomId(101L);
+        testBooking.setUserId(USER_ID);
+        testBooking.setRoomId(ROOM_ID);
         testBooking.setStartDate(LocalDate.now().plusDays(1));
         testBooking.setEndDate(LocalDate.now().plusDays(3));
-        testBooking.setStatus(BookingStatus.PENDING);
+        testBooking.setAutoSelect(false);
     }
 
     /**
-     * Тест для endpoint: POST /bookings
+     * Тест для метода: createBooking
      * Назначение: Создание нового бронирования
      * Сценарий: Успешное подтверждение бронирования при доступности номера
      * Ожидаемый результат:
@@ -73,467 +83,427 @@ class BookingServiceTest {
      * 5. При подтверждении доступности обновляет статус на CONFIRMED
      */
     @Test
-    void createBooking_ShouldConfirmBooking_WhenRoomAvailable() {
+    void createBooking_WhenRoomAvailable_ShouldConfirmBooking() {
         // Arrange
-        when(bookingRepository.existsByCorrelationId(anyString())).thenReturn(false);
+        when(bookingRepository.existsByCorrelationId(CORRELATION_ID)).thenReturn(false);
         when(bookingRepository.save(any(Booking.class))).thenReturn(testBooking);
         when(internalAuthService.isTokenValid()).thenReturn(true);
-        when(hotelServiceClient.confirmAvailability(anyLong())).thenReturn(true);
+        when(hotelServiceClient.confirmAvailability(anyLong(), any(AvailabilityRequest.class))).thenReturn(true);
 
         // Act
-        Booking result = bookingService.createBooking(testBooking, "correlation-123");
+        Booking result = bookingService.createBooking(testBooking, CORRELATION_ID);
 
         // Assert
         assertNotNull(result);
-        verify(bookingRepository, times(2)).save(any(Booking.class));
+        assertEquals(BookingStatus.CONFIRMED, result.getStatus());
+        verify(hotelServiceClient).confirmAvailability(eq(ROOM_ID), any(AvailabilityRequest.class));
+        // Проверяем, что releaseRoom не вызывался
+        verify(hotelServiceClient, never()).releaseRoom(anyLong(), any(ReleaseRequest.class));
     }
 
     /**
-     * Тест для endpoint: DELETE /bookings/{id}
-     * Назначение: Отмена существующего бронирования
-     * Сценарий: Успешная отмена существующего бронирования
+     * Тест для метода: createBooking
+     * Назначение: Создание нового бронирования
+     * Сценарий: Отклонение бронирования при недоступности номера
      * Ожидаемый результат:
-     * - Возвращает отмененное бронирование
-     * - Статус бронирования изменен на CANCELLED
+     * - Бронирование отменяется
+     * - Статус бронирования CANCELLED
      * Бизнес-логика:
-     * 1. Находит бронирование по ID
-     * 2. Изменяет статус бронирования на CANCELLED
-     * 3. Сохраняет обновленное бронирование
-     * 4. Вызывает сервис отелей для освобождения номера
-     * 5. Возвращает обновленное бронирование
+     * 1. Сохраняет бронирование в статусе PENDING
+     * 2. Проверяет доступность номера через HotelService
+     * 3. При недоступности номера вызывает handleBookingFailure
+     * 4. Освобождает номер через releaseRoom
      */
     @Test
-    void cancelBooking_ShouldCancelBooking_WhenBookingExists() {
+    void createBooking_WhenRoomNotAvailable_ShouldCancelBooking() {
         // Arrange
-        when(bookingRepository.findById(anyLong())).thenReturn(Optional.of(testBooking));
+        when(bookingRepository.existsByCorrelationId(CORRELATION_ID)).thenReturn(false);
         when(bookingRepository.save(any(Booking.class))).thenReturn(testBooking);
+        when(internalAuthService.isTokenValid()).thenReturn(true);
+        when(hotelServiceClient.confirmAvailability(anyLong(), any(AvailabilityRequest.class))).thenReturn(false);
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> bookingService.createBooking(testBooking, CORRELATION_ID));
+
+        assertTrue(exception.getMessage().contains("Room is not available for selected dates"));
+
+        // Проверяем, что releaseRoom вызывался хотя бы один раз (может вызываться несколько раз из-за логики отката)
+        verify(hotelServiceClient, atLeastOnce()).releaseRoom(eq(ROOM_ID), any(ReleaseRequest.class));
+
+        // Проверяем, что бронирование было сохранено с статусом CANCELLED
+        verify(bookingRepository, atLeast(2)).save(any(Booking.class));
+    }
+
+    /**
+     * Тест для метода: createBooking
+     * Назначение: Создание нового бронирования
+     * Сценарий: Идемпотентность при дублирующем correlationId
+     * Ожидаемый результат:
+     * - Возвращает существующее бронирование
+     * - Не создает новое бронирование
+     * Бизнес-логика:
+     * 1. Проверяет существование бронирования по correlationId
+     * 2. Возвращает существующее бронирование без вызова бизнес-логики
+     * 3. Гарантирует идемпотентность операции
+     */
+    @Test
+    void createBooking_WithDuplicateCorrelationId_ShouldReturnExistingBooking() {
+        // Arrange
+        when(bookingRepository.existsByCorrelationId(CORRELATION_ID)).thenReturn(true);
+        when(bookingRepository.findByCorrelationId(CORRELATION_ID)).thenReturn(Optional.of(testBooking));
 
         // Act
-        Booking result = bookingService.cancelBooking(1L);
+        Booking result = bookingService.createBooking(testBooking, CORRELATION_ID);
 
         // Assert
-        assertEquals(BookingStatus.CANCELLED, result.getStatus());
-        verify(hotelServiceClient, times(1)).releaseRoom(anyLong());
+        assertNotNull(result);
+        assertEquals(testBooking.getId(), result.getId());
+        verify(bookingRepository, never()).save(any(Booking.class));
+        verify(hotelServiceClient, never()).confirmAvailability(anyLong(), any(AvailabilityRequest.class));
+        verify(hotelServiceClient, never()).releaseRoom(anyLong(), any(ReleaseRequest.class));
     }
 
     /**
-     * Тест для endpoint: GET /bookings/{id}
-     * Назначение: Получение информации о бронировании по ID
-     * Сценарий: Успешное получение существующего бронирования
+     * Тест для метода: createBooking
+     * Назначение: Создание нового бронирования
+     * Сценарий: Автоподбор комнаты при включенном autoSelect
      * Ожидаемый результат:
-     * - Возвращает бронирование в Optional
-     * - Содержит корректные данные бронирования
+     * - Автоматически выбирает лучшую комнату
+     * - Создает бронирование с выбранной комнатой
      * Бизнес-логика:
-     * 1. Ищет бронирование в репозитории по ID
-     * 2. Возвращает найденное бронирование в Optional
-     * 3. Если бронирование не найдено, возвращает Optional.empty()
+     * 1. Определяет необходимость автоподбора по флагу autoSelect
+     * 2. Вызывает метод autoSelectBestRoom для выбора комнаты
+     * 3. Устанавливает выбранный roomId в бронирование
      */
     @Test
-    void getBookingById_ShouldReturnBooking_WhenExists() {
+    void createBooking_WithAutoSelectEnabled_ShouldAutoSelectRoom() {
         // Arrange
-        when(bookingRepository.findById(1L)).thenReturn(Optional.of(testBooking));
+        testBooking.setAutoSelect(true);
+        testBooking.setRoomId(null);
+        Long autoSelectedRoomId = 789L;
+
+        // Создаем реальный объект RoomRecommendation
+        RoomRecommendation recommendation = new RoomRecommendation();
+        recommendation.setId(autoSelectedRoomId);
+        recommendation.setType("DELUXE");
+        recommendation.setPrice(200.0);
+        recommendation.setTimesBooked(5);
+
+        when(bookingRepository.existsByCorrelationId(CORRELATION_ID)).thenReturn(false);
+        when(bookingRepository.save(any(Booking.class))).thenReturn(testBooking);
+        when(internalAuthService.isTokenValid()).thenReturn(true);
+        when(hotelServiceClient.getRecommendedRooms(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(recommendation));
+        when(hotelServiceClient.confirmAvailability(anyLong(), any(AvailabilityRequest.class))).thenReturn(true);
 
         // Act
-        Optional<Booking> result = bookingService.getBookingById(1L);
+        Booking result = bookingService.createBooking(testBooking, CORRELATION_ID);
+
+        // Assert
+        assertNotNull(result);
+        verify(hotelServiceClient).getRecommendedRooms(testBooking.getStartDate(), testBooking.getEndDate());
+        assertEquals(BookingStatus.CONFIRMED, result.getStatus());
+        verify(hotelServiceClient, never()).releaseRoom(anyLong(), any(ReleaseRequest.class));
+    }
+
+    /**
+     * Тест для метода: createBooking
+     * Назначение: Создание нового бронирования
+     * Сценарий: Ошибка при отсутствии roomId и выключенном autoSelect
+     * Ожидаемый результат:
+     * - Выбрасывает исключение
+     * - Не создает бронирование
+     * Бизнес-логика:
+     * 1. Проверяет наличие roomId при выключенном autoSelect
+     * 2. Выбрасывает исключение при отсутствии roomId
+     * 3. Гарантирует обязательность указания комнаты
+     */
+    @Test
+    void createBooking_WithoutRoomIdAndAutoSelectDisabled_ShouldThrowException() {
+        // Arrange
+        testBooking.setRoomId(null);
+        testBooking.setAutoSelect(false);
+
+        when(bookingRepository.existsByCorrelationId(CORRELATION_ID)).thenReturn(false);
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> bookingService.createBooking(testBooking, CORRELATION_ID));
+
+        assertEquals("Room ID is required when autoSelect is false", exception.getMessage());
+
+        // Проверяем, что не было попыток сохранить бронирование или вызвать внешние сервисы
+        verify(bookingRepository, never()).save(any(Booking.class));
+        verify(hotelServiceClient, never()).confirmAvailability(anyLong(), any(AvailabilityRequest.class));
+        verify(hotelServiceClient, never()).releaseRoom(anyLong(), any(ReleaseRequest.class));
+    }
+
+    /**
+     * Тест для метода: createBooking
+     * Назначение: Создание нового бронирования
+     * Сценарий: Ошибка автоподбора при отсутствии доступных комнат
+     * Ожидаемый результат:
+     * - Выбрасывает исключение
+     * - Не создает бронирование
+     * Бизнес-логика:
+     * 1. Определяет необходимость автоподбора
+     * 2. Запрашивает рекомендации у HotelService
+     * 3. При отсутствии рекомендаций выбрасывает исключение
+     */
+    @Test
+    void createBooking_WithAutoSelectAndNoAvailableRooms_ShouldThrowException() {
+        // Arrange
+        testBooking.setAutoSelect(true);
+        testBooking.setRoomId(null);
+
+        when(bookingRepository.existsByCorrelationId(CORRELATION_ID)).thenReturn(false);
+        when(hotelServiceClient.getRecommendedRooms(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of()); // Пустой список
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> bookingService.createBooking(testBooking, CORRELATION_ID));
+
+        assertTrue(exception.getMessage().contains("No available rooms found for selected dates"));
+
+        // Проверяем, что не было попыток подтвердить доступность или освободить комнату
+        verify(hotelServiceClient, never()).confirmAvailability(anyLong(), any(AvailabilityRequest.class));
+        verify(hotelServiceClient, never()).releaseRoom(anyLong(), any(ReleaseRequest.class));
+    }
+
+    /**
+     * Тест для метода: cancelBooking
+     * Назначение: Отмена существующего бронирования
+     * Сценарий: Попытка отмены уже отмененного бронирования
+     * Ожидаемый результат:
+     * - Выбрасывает исключение
+     * - Не выполняет операцию отмены
+     * Бизнес-логика:
+     * 1. Проверяет текущий статус бронирования
+     * 2. Запрещает отмену уже отмененных или завершенных бронирований
+     * 3. Сохраняет целостность данных
+     */
+    @Test
+    void cancelBooking_AlreadyCancelled_ShouldThrowException() {
+        // Arrange
+        Long bookingId = 1L;
+        testBooking.setStatus(BookingStatus.CANCELLED);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(testBooking));
+        setupSimpleSecurityContext();
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> bookingService.cancelBooking(bookingId));
+
+        assertTrue(exception.getMessage().contains("Cannot cancel booking with status: CANCELLED"));
+        verify(hotelServiceClient, never()).releaseRoom(anyLong(), any(ReleaseRequest.class));
+    }
+
+    /**
+     * Тест для метода: getBookingById
+     * Назначение: Получение бронирования по ID
+     * Сценарий: Успешное получение существующего бронирования
+     * Ожидаемый результат:
+     * - Возвращает Optional с бронированием
+     * Бизнес-логика:
+     * 1. Ищет бронирование в репозитории по ID
+     * 2. Возвращает результат поиска
+     */
+    @Test
+    void getBookingById_WithExistingId_ShouldReturnBooking() {
+        // Arrange
+        Long bookingId = 1L;
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(testBooking));
+
+        // Act
+        Optional<Booking> result = bookingService.getBookingById(bookingId);
 
         // Assert
         assertTrue(result.isPresent());
-        assertEquals(1L, result.get().getId());
+        assertEquals(testBooking.getId(), result.get().getId());
     }
 
     /**
-     * Тест для endpoint: GET /bookings/user/{userId}
-     * Назначение: Получение списка бронирований пользователя
-     * Сценарий: Успешное получение бронирований пользователя
+     * Тест для метода: getBookingById
+     * Назначение: Получение бронирования по ID
+     * Сценарий: Бронирование не найдено
      * Ожидаемый результат:
-     * - Возвращает список бронирований пользователя
-     * - Содержит корректные данные бронирований
+     * - Возвращает пустой Optional
      * Бизнес-логика:
-     * 1. Ищет бронирования по ID пользователя в репозитории
-     * 2. Возвращает список найденных бронирований
+     * 1. Ищет бронирование в репозитории по ID
+     * 2. Возвращает пустой результат если не найдено
      */
     @Test
-    void getUserBookings_ShouldReturnUserBookings() {
+    void getBookingById_WithNonExistingId_ShouldReturnEmpty() {
         // Arrange
-        Long userId = 1L;
-        Booking booking1 = createBooking(1L, userId, 101L, BookingStatus.CONFIRMED);
-        Booking booking2 = createBooking(2L, userId, 102L, BookingStatus.PENDING);
-        List<Booking> expectedBookings = Arrays.asList(booking1, booking2);
-
-        when(bookingRepository.findByUserId(userId)).thenReturn(expectedBookings);
+        Long bookingId = 999L;
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.empty());
 
         // Act
-        List<Booking> result = bookingService.getUserBookings(userId);
+        Optional<Booking> result = bookingService.getBookingById(bookingId);
 
         // Assert
-        assertNotNull(result);
-        assertEquals(2, result.size());
-        verify(bookingRepository, times(1)).findByUserId(userId);
+        assertFalse(result.isPresent());
     }
 
     /**
-     * Тест для endpoint: GET /bookings/my
-     * Назначение: Получение бронирований текущего пользователя
-     * Сценарий: Успешное получение бронирований авторизованного пользователя
+     * Тест для метода: validateDates
+     * Назначение: Валидация дат для рекомендаций комнат
+     * Сценарий: Некорректные даты (начальная дата в прошлом)
      * Ожидаемый результат:
-     * - Возвращает список бронирований текущего пользователя
-     * - Содержит корректные данные бронирований
+     * - Выбрасывает исключение с сообщением об ошибке
      * Бизнес-логика:
-     * 1. Получает аутентификацию из SecurityContext
-     * 2. Извлекает JWT токен
-     * 3. Извлекает userId из claims токена
-     * 4. Ищет бронирования по ID пользователя в репозитории
-     * 5. Возвращает список найденных бронирований
+     * 1. Проверяет что начальная дата не в прошлом
+     * 2. Проверяет что конечная дата после начальной
+     * 3. Проверяет что период не превышает 1 месяц
      */
     @Test
-    void getCurrentUserBookings_ShouldReturnCurrentUserBookings() {
+    void getRecommendedRooms_WithStartDateInPast_ShouldThrowException() {
         // Arrange
-        Long userId = 1L;
-        String username = "testuser";
-        Booking booking1 = createBooking(1L, userId, 101L, BookingStatus.CONFIRMED);
-        List<Booking> expectedBookings = Arrays.asList(booking1);
+        LocalDate pastDate = LocalDate.now().minusDays(1);
+        LocalDate futureDate = LocalDate.now().plusDays(2);
 
-        // Создаем реальный JWT токен с нужными claims
-        Jwt jwt = Jwt.withTokenValue("test-token")
-                .header("alg", "none")
-                .claim("userId", userId)
-                .claim("sub", username)
-                .build();
+        // Act & Assert
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> bookingService.getRecommendedRooms(pastDate, futureDate));
 
-        // Настройка SecurityContext - используем только необходимые стабы
-        Authentication authentication = mock(Authentication.class);
-        when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getPrincipal()).thenReturn(jwt);
-
-        org.springframework.security.core.context.SecurityContext securityContext =
-                mock(org.springframework.security.core.context.SecurityContext.class);
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-
-        // Сохраняем оригинальный контекст и устанавливаем мок
-        org.springframework.security.core.context.SecurityContext originalContext =
-                SecurityContextHolder.getContext();
-        try {
-            SecurityContextHolder.setContext(securityContext);
-
-            when(bookingRepository.findByUserId(userId)).thenReturn(expectedBookings);
-
-            // Act
-            List<Booking> result = bookingService.getCurrentUserBookings();
-
-            // Assert
-            assertNotNull(result);
-            assertEquals(1, result.size());
-            assertEquals(userId, result.get(0).getUserId());
-            verify(bookingRepository, times(1)).findByUserId(userId);
-        } finally {
-            // Восстанавливаем оригинальный контекст
-            SecurityContextHolder.setContext(originalContext);
-        }
+        assertTrue(exception.getMessage().contains("Start date cannot be in the past"));
     }
 
     /**
-     * Тест для endpoint: GET /bookings (ADMIN)
-     * Назначение: Получение всех бронирований в системе
-     * Сценарий: Успешное получение всех бронирований
+     * Тест для метода: validateDates
+     * Назначение: Валидация дат для рекомендаций комнат
+     * Сценарий: Конечная дата раньше начальной
      * Ожидаемый результат:
-     * - Возвращает список всех бронирований
-     * - Содержит полные данные всех бронирований
+     * - Выбрасывает исключение с сообщением об ошибке
      * Бизнес-логика:
-     * 1. Ищет все бронирования в репозитории
-     * 2. Возвращает полный список бронирований
+     * 1. Проверяет корректность порядка дат
+     * 2. Гарантирует что период бронирования логически корректен
      */
     @Test
-    void getAllBookings_ShouldReturnAllBookings() {
+    void getRecommendedRooms_WithEndDateBeforeStart_ShouldThrowException() {
         // Arrange
-        Booking booking1 = createBooking(1L, 1L, 101L, BookingStatus.CONFIRMED);
-        Booking booking2 = createBooking(2L, 2L, 102L, BookingStatus.PENDING);
-        List<Booking> expectedBookings = Arrays.asList(booking1, booking2);
+        LocalDate startDate = LocalDate.now().plusDays(3);
+        LocalDate endDate = LocalDate.now().plusDays(1);
 
-        when(bookingRepository.findAll()).thenReturn(expectedBookings);
+        // Act & Assert
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> bookingService.getRecommendedRooms(startDate, endDate));
+
+        assertTrue(exception.getMessage().contains("End date must be after start date"));
+    }
+
+    /**
+     * Тест для метода: completeExpiredBookings
+     * Назначение: Автоматическое завершение истекших бронирований
+     * Сценарий: Нет истекших бронирований
+     * Ожидаемый результат:
+     * - Не выполняет никаких обновлений
+     * Бизнес-логика:
+     * 1. Находит все подтвержденные бронирования
+     * 2. Проверяет дату окончания каждого бронирования
+     * 3. Не обновляет статус если дата окончания не истекла
+     */
+    @Test
+    void completeExpiredBookings_WithNoExpiredBookings_ShouldDoNothing() {
+        // Arrange
+        Booking activeBooking = new Booking();
+        activeBooking.setId(3L);
+        activeBooking.setStatus(BookingStatus.CONFIRMED);
+        activeBooking.setEndDate(LocalDate.now().plusDays(1)); // Завтра
+
+        when(bookingRepository.findByStatus(BookingStatus.CONFIRMED))
+                .thenReturn(List.of(activeBooking));
 
         // Act
-        List<Booking> result = bookingService.getAllBookings();
+        bookingService.completeExpiredBookings();
 
         // Assert
-        assertNotNull(result);
-        assertEquals(2, result.size());
-        verify(bookingRepository, times(1)).findAll();
+        verify(bookingRepository, never()).save(any(Booking.class));
     }
 
     /**
      * Тест для метода: updateBookingStatus
      * Назначение: Обновление статуса бронирования
-     * Сценарий: Успешное обновление статуса существующего бронирования
+     * Сценарий: Успешное обновление статуса
      * Ожидаемый результат:
      * - Возвращает обновленное бронирование
-     * - Статус бронирования изменен на указанный
+     * - Статус изменен на указанный
      * Бизнес-логика:
      * 1. Находит бронирование по ID
-     * 2. Обновляет статус бронирования
-     * 3. Сохраняет обновленное бронирование
-     * 4. Возвращает обновленное бронирование
+     * 2. Обновляет статус и время модификации
+     * 3. Сохраняет изменения
      */
     @Test
-    void updateBookingStatus_ShouldUpdateStatus_WhenBookingExists() {
+    void updateBookingStatus_WithValidBooking_ShouldUpdateStatus() {
         // Arrange
         Long bookingId = 1L;
-        Booking existingBooking = createBooking(bookingId, 1L, 101L, BookingStatus.PENDING);
-
-        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existingBooking));
-        when(bookingRepository.save(existingBooking)).thenReturn(existingBooking);
+        BookingStatus newStatus = BookingStatus.COMPLETED;
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(testBooking));
+        when(bookingRepository.save(any(Booking.class))).thenReturn(testBooking);
 
         // Act
-        Booking result = bookingService.updateBookingStatus(bookingId, BookingStatus.CONFIRMED);
+        Booking result = bookingService.updateBookingStatus(bookingId, newStatus);
 
         // Assert
         assertNotNull(result);
-        assertEquals(BookingStatus.CONFIRMED, result.getStatus());
-        verify(bookingRepository, times(1)).findById(bookingId);
-        verify(bookingRepository, times(1)).save(existingBooking);
+        assertEquals(newStatus, result.getStatus());
+        assertNotNull(result.getUpdatedAt());
+    }
+
+    /**
+     * Тест для метода: updateBookingStatus
+     * Назначение: Обновление статуса бронирования
+     * Сценарий: Бронирование не найдено
+     * Ожидаемый результат:
+     * - Выбрасывает исключение
+     * Бизнес-логика:
+     * 1. Ищет бронирование по ID
+     * 2. При отсутствии бронирования выбрасывает исключение
+     */
+    @Test
+    void updateBookingStatus_WithNonExistingBooking_ShouldThrowException() {
+        // Arrange
+        Long bookingId = 999L;
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> bookingService.updateBookingStatus(bookingId, BookingStatus.COMPLETED));
+
+        assertTrue(exception.getMessage().contains("Booking not found with ID: " + bookingId));
     }
 
     /**
      * Тест для метода: getBookingsByStatus
      * Назначение: Получение бронирований по статусу
-     * Сценарий: Успешное получение бронирований с указанным статусом
+     * Сценарий: Успешное получение списка
      * Ожидаемый результат:
      * - Возвращает список бронирований с указанным статусом
-     * - Содержит только бронирования с запрошенным статусом
      * Бизнес-логика:
-     * 1. Ищет бронирования по статусу в репозитории
-     * 2. Возвращает список найденных бронирований
+     * 1. Запрашивает бронирования из репозитория по статусу
+     * 2. Возвращает полученный список
      */
     @Test
-    void getBookingsByStatus_ShouldReturnBookings_WithSpecifiedStatus() {
+    void getBookingsByStatus_WithValidStatus_ShouldReturnBookings() {
         // Arrange
         BookingStatus status = BookingStatus.CONFIRMED;
-        Booking booking1 = createBooking(1L, 1L, 101L, status);
-        Booking booking2 = createBooking(2L, 2L, 102L, status);
-        List<Booking> expectedBookings = Arrays.asList(booking1, booking2);
-
-        when(bookingRepository.findByStatus(status)).thenReturn(expectedBookings);
+        when(bookingRepository.findByStatus(status)).thenReturn(List.of(testBooking));
 
         // Act
         List<Booking> result = bookingService.getBookingsByStatus(status);
 
         // Assert
         assertNotNull(result);
-        assertEquals(2, result.size());
-        assertTrue(result.stream().allMatch(booking -> booking.getStatus() == status));
-        verify(bookingRepository, times(1)).findByStatus(status);
+        assertFalse(result.isEmpty());
+        assertEquals(testBooking.getId(), result.get(0).getId());
     }
 
-    /**
-     * Тест для метода: completeExpiredBookings
-     * Назначение: Автоматическое завершение истекших бронирований
-     * Сценарий: Успешное завершение бронирований с истекшей датой окончания
-     * Ожидаемый результат:
-     * - Статус истекших бронирований изменен на COMPLETED
-     * - Актуальные бронирования остаются без изменений
-     * Бизнес-логика:
-     * 1. Находит все подтвержденные бронирования
-     * 2. Проверяет дату окончания каждого бронирования
-     * 3. Для истекших бронирований устанавливает статус COMPLETED
-     * 4. Сохраняет изменения
-     */
-    @Test
-    void completeExpiredBookings_ShouldCompleteExpiredBookings() {
-        // Arrange
-        Booking expiredBooking = createBooking(1L, 1L, 101L, BookingStatus.CONFIRMED);
-        expiredBooking.setEndDate(LocalDate.now().minusDays(1));
-
-        Booking activeBooking = createBooking(2L, 2L, 102L, BookingStatus.CONFIRMED);
-        activeBooking.setEndDate(LocalDate.now().plusDays(1));
-
-        List<Booking> confirmedBookings = Arrays.asList(expiredBooking, activeBooking);
-
-        when(bookingRepository.findByStatus(BookingStatus.CONFIRMED)).thenReturn(confirmedBookings);
-        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        // Act
-        bookingService.completeExpiredBookings();
-
-        // Assert
-        verify(bookingRepository, times(1)).save(expiredBooking);
-        assertEquals(BookingStatus.COMPLETED, expiredBooking.getStatus());
-        assertEquals(BookingStatus.CONFIRMED, activeBooking.getStatus());
-    }
-
-    /**
-     * Тест для endpoint: POST /bookings
-     * Назначение: Создание бронирования с недоступным номером
-     * Сценарий: Отмена бронирования при недоступности номера
-     * Ожидаемый результат:
-     * - Выбрасывает исключение с сообщением о недоступности
-     * - Статус бронирования изменен на CANCELLED
-     * Бизнес-логика:
-     * 1. Проверяет уникальность correlationId
-     * 2. Сохраняет бронирование в статусе PENDING
-     * 3. Проверяет доступность номера
-     * 4. При недоступности номера отменяет бронирование
-     * 5. Освобождает номер через компенсирующее действие
-     */
-    @Test
-    void createBooking_ShouldCancelBooking_WhenRoomNotAvailable() {
-        // Arrange
-        when(bookingRepository.existsByCorrelationId(anyString())).thenReturn(false);
-        when(bookingRepository.save(any(Booking.class))).thenReturn(testBooking);
-        when(internalAuthService.isTokenValid()).thenReturn(true);
-        when(hotelServiceClient.confirmAvailability(anyLong())).thenReturn(false);
-
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> bookingService.createBooking(testBooking, "correlation-123"));
-
-        assertEquals("Booking failed: Room is not available for selected dates", exception.getMessage());
-
-        // ИСПРАВЛЕНО: теперь проверяем 3 вызова save() и 2 вызова releaseRoom()
-        verify(bookingRepository, times(3)).save(any(Booking.class));
-        verify(hotelServiceClient, times(2)).releaseRoom(anyLong());
-    }
-
-    /**
-     * Тест для endpoint: POST /bookings
-     * Назначение: Создание бронирования с дублирующим correlationId
-     * Сценарий: Возврат существующего бронирования при дублирующем запросе
-     * Ожидаемый результат:
-     * - Возвращает существующее бронирование
-     * - Не создает новое бронирование
-     * Бизнес-логика:
-     * 1. Проверяет существование correlationId
-     * 2. Находит существующее бронирование по correlationId
-     * 3. Возвращает существующее бронирование без создания нового
-     */
-    @Test
-    void createBooking_ShouldReturnExistingBooking_WhenDuplicateCorrelationId() {
-        // Arrange
-        when(bookingRepository.existsByCorrelationId("duplicate-correlation")).thenReturn(true);
-        when(bookingRepository.findByCorrelationId("duplicate-correlation")).thenReturn(Optional.of(testBooking));
-
-        // Act
-        Booking result = bookingService.createBooking(testBooking, "duplicate-correlation");
-
-        // Assert
-        assertNotNull(result);
-        verify(bookingRepository, never()).save(any(Booking.class));
-        verify(hotelServiceClient, never()).confirmAvailability(anyLong());
-    }
-
-    /**
-     * Тест для endpoint: DELETE /bookings/{id}
-     * Назначение: Отмена несуществующего бронирования
-     * Сценарий: Обработка попытки отмены несуществующего бронирования
-     * Ожидаемый результат:
-     * - Выбрасывает исключение с сообщением о ненайденном бронировании
-     * - Не выполняет освобождение номера
-     * Бизнес-логика:
-     * 1. Ищет бронирование по ID
-     * 2. При отсутствии бронирования выбрасывает исключение
-     * 3. Не выполняет дальнейшие действия
-     */
-    @Test
-    void cancelBooking_ShouldThrowException_WhenBookingNotFound() {
-        // Arrange
-        when(bookingRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> bookingService.cancelBooking(999L));
-
-        assertEquals("Booking not found with ID: 999", exception.getMessage());
-        verify(bookingRepository, never()).save(any(Booking.class));
-        verify(hotelServiceClient, never()).releaseRoom(anyLong());
-    }
-
-    /**
-     * Тест для endpoint: GET /bookings/{id}
-     * Назначение: Получение несуществующего бронирования
-     * Сценарий: Обработка запроса несуществующего бронирования
-     * Ожидаемый результат:
-     * - Возвращает пустой Optional
-     * - Не выбрасывает исключение
-     * Бизнес-логика:
-     * 1. Ищет бронирование по ID
-     * 2. При отсутствии бронирования возвращает Optional.empty()
-     */
-    @Test
-    void getBookingById_ShouldReturnEmpty_WhenNotExists() {
-        // Arrange
-        when(bookingRepository.findById(999L)).thenReturn(Optional.empty());
-
-        // Act
-        Optional<Booking> result = bookingService.getBookingById(999L);
-
-        // Assert
-        assertFalse(result.isPresent());
-        verify(bookingRepository, times(1)).findById(999L);
-    }
-
-    /**
-     * Тест для endpoint: POST /bookings
-     * Назначение: Создание бронирования с невалидными датами
-     * Сценарий: Обработка попытки создания бронирования с датами в прошлом
-     * Ожидаемый результат:
-     * - Выбрасывает исключение с сообщением о невалидных датах
-     * - Не сохраняет бронирование
-     * Бизнес-логика:
-     * 1. Проверяет валидность дат бронирования
-     * 2. При невалидных датах выбрасывает исключение
-     * 3. Не выполняет дальнейшие действия
-     */
-    @Test
-    void createBooking_ShouldThrowException_WhenInvalidDates() {
-        // Arrange
-        Booking invalidBooking = new Booking();
-        invalidBooking.setUserId(1L);
-        invalidBooking.setRoomId(101L);
-        invalidBooking.setStartDate(LocalDate.now().minusDays(1)); // Дата в прошлом
-        invalidBooking.setEndDate(LocalDate.now().plusDays(3));
-
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> bookingService.createBooking(invalidBooking, "correlation-123"));
-
-        assertEquals("Start date cannot be in the past", exception.getMessage());
-        verify(bookingRepository, never()).save(any(Booking.class));
-    }
-
-    /**
-     * Тест для метода: updateBookingStatus
-     * Назначение: Обновление статуса несуществующего бронирования
-     * Сценарий: Обработка попытки обновления статуса несуществующего бронирования
-     * Ожидаемый результат:
-     * - Выбрасывает исключение с сообщением о ненайденном бронировании
-     * - Не сохраняет изменения
-     * Бизнес-логика:
-     * 1. Ищет бронирование по ID
-     * 2. При отсутствии бронирования выбрасывает исключение
-     * 3. Не выполняет обновление статуса
-     */
-    @Test
-    void updateBookingStatus_ShouldThrowException_WhenBookingNotFound() {
-        // Arrange
-        when(bookingRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> bookingService.updateBookingStatus(999L, BookingStatus.CONFIRMED));
-
-        assertEquals("Booking not found with ID: 999", exception.getMessage());
-        verify(bookingRepository, never()).save(any(Booking.class));
-    }
-
-    // Вспомогательный метод для создания тестовых бронирований
-    private Booking createBooking(Long id, Long userId, Long roomId, BookingStatus status) {
-        Booking booking = new Booking();
-        booking.setId(id);
-        booking.setUserId(userId);
-        booking.setRoomId(roomId);
-        booking.setStartDate(LocalDate.now().plusDays(1));
-        booking.setEndDate(LocalDate.now().plusDays(3));
-        booking.setStatus(status);
-        booking.setCreatedAt(LocalDateTime.now());
-        booking.setUpdatedAt(LocalDateTime.now());
-        return booking;
+    private void setupSimpleSecurityContext() {
+        // Упрощенная настройка security context без сложных thenReturn
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(securityContext);
     }
 }

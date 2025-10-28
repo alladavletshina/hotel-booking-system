@@ -1,5 +1,6 @@
 package com.hotelbooking.booking.controller;
 
+import com.hotelbooking.booking.client.dto.RoomRecommendation;
 import com.hotelbooking.booking.dto.BookingDto;
 import com.hotelbooking.booking.dto.BookingRequest;
 import com.hotelbooking.booking.entity.Booking;
@@ -10,10 +11,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -81,5 +84,17 @@ public class BookingController {
                 .map(bookingMapper::toDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(bookingDtos);
+    }
+
+    @Operation(summary = "Получить рекомендованные номера на даты")
+    @GetMapping("/recommendations")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<List<RoomRecommendation>> getRecommendedRooms(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        log.info("GET /bookings/recommendations - Getting recommended rooms from {} to {}", startDate, endDate);
+        List<RoomRecommendation> recommendations = bookingService.getRecommendedRooms(startDate, endDate);
+        return ResponseEntity.ok(recommendations);
     }
 }
